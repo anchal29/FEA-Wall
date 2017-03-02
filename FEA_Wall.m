@@ -35,6 +35,9 @@ if choice == 1
     
     bar_dia = input('Enter the main steel bar diameter:    ');
     
+    div_x = input('Enter the division in x direction:    ');
+    div_y = input('Enter the division in y direction:    ');
+    div_z = input('Enter the division in z direction:    ');
     %%% Loads
     % Loads will be considered later.
     %%%% @TODO
@@ -43,9 +46,11 @@ else
     width = 5000;
     thickness = 230;
     mod_of_elas = 2 * 10^5;
-    pois_ratio = -.3
+    pois_ratio = .3;
     bar_dia = 12; % 12mm diameter bars
-    div_
+    div_x = 1;
+    div_y = 20;
+    div_z = 20;
 end
 
 % % Converting all the input in SI unit 
@@ -54,7 +59,7 @@ end
 % bar_dia = bar_dia * 10^-3;
 
 % Dimensions matrix is in mm so to avoid float values.
-dimension = [height, width, thickness];
+dimension = [thickness, width, height];
 a = mod_of_elas * (1-pois_ratio) / ((1- 2 * pois_ratio) * (1 + pois_ratio));
 b = mod_of_elas * pois_ratio / ((1- 2 * pois_ratio) * (1 + pois_ratio));
 G = mod_of_elas / (2 * (1 + pois_ratio));
@@ -77,24 +82,25 @@ D = [ a b b 0 0 0;
 % ease.
 cube_side_temp = bar_dia;
 
-% Mesh size will be equal to the GCD of thickness, height, width and bar
-% diameter.
-mesh_size = gcd(gcd(dimension(1), dimension(2)), gcd(dimension(3), cube_side_temp));
-% mesh_size = gcd(gcd(dimension(1), dimension(2)), dimension(3));
-mesh_size = 10;
-fprintf('Mesh size: %d mm\n', mesh_size); 
-% mesh_size = bar_dia;
-no_elements = (height/mesh_size)*(width/mesh_size)*(thickness/mesh_size);
+% Total number of elements will be equal to the multiplication of the
+% divisions in all the directions.
+no_elements = div_x * div_y * div_z;
+
+% Mesh size contains the mesh sizes in the three directions i.e. x,y and z
+% respectively.
+mesh_size = [dimension(1)/div_x, dimension(2)/div_x, dimension(3)/div_z];
+
 % mesh_meta_data contains no. of division in height, width and depth
 % direction.
-mesh_meta_data = [dimension(1)/mesh_size, dimension(2)/mesh_size, dimension(3)/mesh_size];
+mesh_meta_data = [div_x, div_y, div_z];
+total_no_nodes = (div_x + 1)*(div_y + 1)*(div_z + 1);
+global_stiff = zeros(total_no_nodes*3, total_no_nodes*3);
 for ii = 1:no_elements
     element_no = ii;
-    [ele_stiffness, jacobian, jacobian_testing, nodal_coordinates, pre_stiff, stiff] = octa_element_stiff(mesh_size, element_no, dimension, mesh_meta_data, D);
+    [ele_stiffness, jacobian, jacobian_testing, nodal_coordinates, pre_stiff, stiff, global_stiff] = octa_element_stiff(mesh_size, element_no, dimension, mesh_meta_data, D, global_stiff);
     if(jacobian == jacobian_testing)
         just_checking(ii) = 1;
     else
         just_checking(ii) = 0;
     end
-%     break;
 end

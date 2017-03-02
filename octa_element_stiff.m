@@ -1,16 +1,16 @@
-function [ele_stiffness, jacobian, jacobian_testing, nodal_coordinates, pre_stiff, stiff] =  octa_element_stiff(mesh_size, element_no, dimension, mesh_meta_data, D)
+function [ele_stiffness, jacobian, jacobian_testing, nodal_coordinates, pre_stiff, stiff, global_stiff] =  octa_element_stiff(mesh_size, element_no, dimension, mesh_meta_data, D, global_stiff)
 
 % For reference the images used:
-%
-%      (z)   (x                             (5) ___________ (8)  
-%       |   /                                  |\          |\
-%       |  /                                   | \         | \
-%       | /                                    |  \________|__\    
-%       |/__________ (y)                       |  |(6)     |  |(7)
-%                                          (1) |__|________|  | 
-%                                              \  |     (4)\  |   
-%                                               \ |         \ |   
-%                                             (2)\|__________\|(3)       
+%        (z)                         (5) _____________ (8)
+%         ^                             /|           /|
+%         |                            / |          / |
+%         |                           /  |         /  |
+%         |                      (6) /___|________/(7)|
+%          --------> (y)             |   |________|___|(4)
+%        /                           |(1)/        |   / 
+%       /                            |  /         |  /
+%      /                             | /          | /  
+%    (x)                          (2)|/___________|/(3)
 
 zeta_at_nodes = [-1, 1, 1, -1, -1, 1, 1, -1];
 eta_at_nodes = [-1, -1, 1, 1, -1, -1, 1, 1];
@@ -27,27 +27,69 @@ end
 
 %% Element's Meta Data Calculation
 
-% layer if the layer of cube mesh repeated over the depth. Layer = 0 would
-% mean first layer and 1 would mean the second layer behind the first one
-% and so on.
-layer = floor((element_no-1)/(mesh_meta_data(1)*mesh_meta_data(2)));
+%%%%%%%%%%%%%%%%%%%%%%
+% Consider the following example, mesh numbering is considered in the
+% similar manner:
+%  ___________ 
+% | 7 | 8 | 9 |
+% | 4 | 5 | 6 |
+% |_1_|_2_|_3_| (1st Layer, equivalent to 0th layer in assumed variable) 
 
-% Element number is updated by taking its mod with the total number of
-% elements in one layer so that now that will be like its first layer only
+%  ______________ 
+% | 16 | 17 | 18 |
+% | 13 | 14 | 15 |
+% |_10_|_11_|_12_| (2nd Layer, equivalent to 1st layer in assumed variable)
+%
+% Here the numbers reperesents the element number and layer is the layer
+% number accross depth side i.e. in x-direction.
+%%%%%%%%%%%%%%%%%%%%%%
+
+% layer is the layer of cube mesh repeated over the depth. Layer = 0 would
+% mean first layer and 1 would mean the second layer behind the first one
+% and so on. Starts from 0.
+
+%%%%%%%%%%%%%%%%%%%%%%
+%%% In the above example if element number = 14 then variable layer = floor
+%%% (13/(3*3)) = floor(1.444) = 1 or for 9 = floor(8/9) = 0.
+%%%%%%%%%%%%%%%%%%%%%%
+layer = floor((element_no-1)/(mesh_meta_data(2)*mesh_meta_data(3)));
+
+% Element number updated to older element number modulus the (division_y x
+% division_z). The updated element number will be less than total number of
+% elements present in a layer.
 % (Here we mean that numbering will become equivalent to first layer
 % numbering).
+
+% Store the actual element for future use.
 temp_ele_no = element_no;
-temp = mod(element_no, mesh_meta_data(1)*mesh_meta_data(2));
+
+%%%%%%%%%%%%%%%%%%%%%%
+%%% In the above example if element number = 14 then updated element_no =
+%%% mod(14, 9) = 5. If element number = 18 then updated element_no = 3*3 = 
+%%% 9 as then temp will become 0.
+%%%%%%%%%%%%%%%%%%%%%%
+temp = mod(element_no, mesh_meta_data(2)*mesh_meta_data(3));
+
 if temp
     element_no = temp;
 else
-    element_no = mesh_meta_data(1)*mesh_meta_data(2);
+    element_no = mesh_meta_data(2)*mesh_meta_data(3);
 end
 
-% Row at which the element falls.
+% Row at which the element falls. Starts from 0.
+
+%%%%%%%%%%%%%%%%%%%%%%
+%%% In the above example if element number = 8 then row tells us the row at
+%%% which the given element falls. row = floor(8/3) = 2.
+%%%%%%%%%%%%%%%%%%%%%%
 row = floor(element_no/mesh_meta_data(2));
 
-% Index along y-direction of the element.
+% Index along y-direction of the element. The column number of the element.
+
+%%%%%%%%%%%%%%%%%%%%%%
+%%% In the above example if element number = 8 then index = mod(8, 3) = 2
+%%% i.e. the second column and if element number = 9 then index = 3;
+%%%%%%%%%%%%%%%%%%%%%%
 temp2 = mod(element_no, mesh_meta_data(2));
 if temp2
     index = temp2;
@@ -57,37 +99,37 @@ end
 
 % Intial coordinates of the first vertex of the cube. Look at the above
 % referenced image for clearence. First nodes coordinates.
-initial_coord = [layer*mesh_size, (index-1)*mesh_size, row*mesh_size];
+initial_coord = [layer*mesh_size(1), (index-1)*mesh_size(2), row*mesh_size(3)];
 
 % Coordinates of all the elemental nodes in global coordinate system.
 x = [initial_coord(1);
-    initial_coord(1)+mesh_size;
-    initial_coord(1)+mesh_size;
+    initial_coord(1)+mesh_size(1);
+    initial_coord(1)+mesh_size(1);
     initial_coord(1);
     initial_coord(1);
-    initial_coord(1)+mesh_size;
-    initial_coord(1)+mesh_size;
+    initial_coord(1)+mesh_size(1);
+    initial_coord(1)+mesh_size(1);
     initial_coord(1);
     ];
        
 y = [initial_coord(2);
     initial_coord(2);    
-    initial_coord(2)+mesh_size;
-    initial_coord(2)+mesh_size;
+    initial_coord(2)+mesh_size(2);
+    initial_coord(2)+mesh_size(2);
     initial_coord(2);
     initial_coord(2);
-    initial_coord(2)+mesh_size;
-    initial_coord(2)+mesh_size;
+    initial_coord(2)+mesh_size(2);
+    initial_coord(2)+mesh_size(2);
     ];
 
 z = [initial_coord(3);
     initial_coord(3);
     initial_coord(3);
     initial_coord(3);
-    initial_coord(3)+mesh_size;
-    initial_coord(3)+mesh_size;
-    initial_coord(3)+mesh_size;
-    initial_coord(3)+mesh_size;
+    initial_coord(3)+mesh_size(3);
+    initial_coord(3)+mesh_size(3);
+    initial_coord(3)+mesh_size(3);
+    initial_coord(3)+mesh_size(3);
     ];
 nodal_coordinates = [x, y, z];
 
@@ -97,6 +139,7 @@ intrinsic_coord = [zeta, eta, nu];
 
 % This can be optimized if the later explained method is correct. Check
 % that and proceed.
+
 for i = 1:3
     for j = 1:3
         for k = 1:8
@@ -104,7 +147,6 @@ for i = 1:3
         end
     end
 end
-
 % By carefully studying the jacobian matrix we can clearly see that it is
 % going to be a diagonal matrix. It is going to happen because of symmetry.
 % Cross check it once then implement it so that we are not calculating the
@@ -145,6 +187,7 @@ end
 
 % Stress Strain relation, D matrix (Stress = D * Strain in 3 Dimension)
 pre_stiff = strain_mat.' * D * strain_mat;
+
 %% Stiffness Matrix Calulation
 
 % Stiffness matrix is the integration of strain_mat.' x E x starin_mat over
@@ -155,13 +198,25 @@ stiff = zeros(24, 24);
 for i = 1:length(weights)
     temp = gaussian_points;
     temp_pre_stiff = pre_stiff;
-%     zeta = temp(1);
-%     eta = temp(2);
-%     nu = temp(3);
     temp_pre_stiff = subs(temp_pre_stiff, zeta, temp(i, 1));
     temp_pre_stiff = subs(temp_pre_stiff, eta, temp(i, 2));
     temp_pre_stiff = subs(temp_pre_stiff, nu, temp(i, 3));
-    stiff = stiff + vpa(temp_pre_stiff);
-%     syms zeta eta nu;
+     stiff = stiff + vpa(temp_pre_stiff);
+end
 
+%% Mapping of local nodes to global nodes
+% First node of element. It is mapped to corresponding x node in global.
+node_one = layer*(mesh_meta_data(2)+1)*(mesh_meta_data(3)+1) + row*mesh_meta_data(2) + index;
+node_two = node_one + (mesh_meta_data(2)+1)*(mesh_meta_data(3)+1);
+mapping = [node_one, node_two, node_two + 1, node_one + 1, node_one + mesh_meta_data(2), node_two + mesh_meta_data(2), node_two + mesh_meta_data(2) + 1, node_one + mesh_meta_data(2) + 1];
+
+%% Mapping of degree of freedom with global
+for i = 1:8
+    final_mapping(3*(i-1)+1:3*i) = ((mapping(i) - 1) * 3) + 1 : mapping(i) * 3;
+end
+% disp(final_mapping);
+for i = 1:24
+    for j = 1:24
+        global_stiff(final_mapping(i), final_mapping(j)) = global_stiff(final_mapping(i), final_mapping(j)) + stiff(i, j);
+    end
 end
