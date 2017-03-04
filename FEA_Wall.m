@@ -48,9 +48,9 @@ else
     mod_of_elas = 2 * 10^5;
     pois_ratio = .3;
     bar_dia = 12; % 12mm diameter bars
-    div_x = 1;
-    div_y = 20;
-    div_z = 20;
+    div_x = 2;
+    div_y = 30;
+    div_z = 30;
 end
 
 % % Converting all the input in SI unit 
@@ -104,3 +104,11 @@ for ii = 1:no_elements
         just_checking(ii) = 0;
     end
 end
+
+
+
+
+
+%% Boundary conditions
+
+% Fixed from all the sides
