@@ -48,9 +48,9 @@ else
     mod_of_elas = 2 * 10^5;
     pois_ratio = .3;
     bar_dia = 12; % 12mm diameter bars
-    div_x = 2;
-    div_y = 30;
-    div_z = 30;
+    div_x = 1;
+    div_y = 24;
+    div_z = 24;
 end
 
 % % Converting all the input in SI unit 
@@ -60,6 +60,7 @@ end
 
 % Dimensions matrix is in mm so to avoid float values.
 dimension = [thickness, width, height];
+mod_of_elas  = mod_of_elas * 10^6;
 a = mod_of_elas * (1-pois_ratio) / ((1- 2 * pois_ratio) * (1 + pois_ratio));
 b = mod_of_elas * pois_ratio / ((1- 2 * pois_ratio) * (1 + pois_ratio));
 G = mod_of_elas / (2 * (1 + pois_ratio));
@@ -88,27 +89,60 @@ no_elements = div_x * div_y * div_z;
 
 % Mesh size contains the mesh sizes in the three directions i.e. x,y and z
 % respectively.
-mesh_size = [dimension(1)/div_x, dimension(2)/div_x, dimension(3)/div_z];
+mesh_size = [dimension(1)/div_x, dimension(2)/div_y, dimension(3)/div_z]*10^-3;
 
 % mesh_meta_data contains no. of division in height, width and depth
 % direction.
 mesh_meta_data = [div_x, div_y, div_z];
 total_no_nodes = (div_x + 1)*(div_y + 1)*(div_z + 1);
 global_stiff = zeros(total_no_nodes*3, total_no_nodes*3);
+teemp11 = zeros(24, 24);
+
+% @Todo remove this part after confirming.
 for ii = 1:no_elements
     element_no = ii;
-    [ele_stiffness, jacobian, jacobian_testing, nodal_coordinates, pre_stiff, stiff, global_stiff] = octa_element_stiff(mesh_size, element_no, dimension, mesh_meta_data, D, global_stiff);
+    [jacobian, jacobian_testing, nodal_coordinates, pre_stiff, stiff, global_stiff] = octa_element_stiff(mesh_size, element_no, dimension, mesh_meta_data, D, global_stiff);
     if(jacobian == jacobian_testing)
         just_checking(ii) = 1;
     else
         just_checking(ii) = 0;
     end
+    if(teemp11 == stiff)
+        just_checking_stiff(ii) = 1;
+    else
+        just_checking_stiff(ii) = 0;
+    end
+    teemp11 = stiff;
+    disp(ii);
 end
-
-
-
 
 
 %% Boundary conditions
 
-% Fixed from all the sides
+%Fixed from all the sides
+condition = 'all_fixed';
+displacement = sym('displacement', [total_no_nodes*3 1]);
+load = zeros(total_no_nodes*3, 1);
+load(floor(37), 1) = 1000;
+
+[displacement_, global_stiff_, load_] = boundary_conditions(displacement, condition, global_stiff, mesh_meta_data, load);
+
+displacement = solve(global_stiff_*displacement_ == load_, displacement_);
+
+
+displacemen	= vpa(struct2array(displacement));
+a = size(displacemen);
+counter_new = 1;
+displ_mesh = zeros(div_y+1, div_z+1);
+for i = 2:div_y
+    for j = 2:div_z
+        displ_mesh(i, j) = displacemen(counter_new);
+        counter_new = counter_new + 3;
+    end
+end    % Loads will be considered later.
+figure;
+contourf(1:div_y+1, 1:div_z+1, displ_mesh);
+colorbar;
+figure;
+surf(1:div_y+1, 1:div_z+1, displ_mesh);
+colorbar;   

@@ -1,4 +1,21 @@
-function [ele_stiffness, jacobian, jacobian_testing, nodal_coordinates, pre_stiff, stiff, global_stiff] =  octa_element_stiff(mesh_size, element_no, dimension, mesh_meta_data, D, global_stiff)
+% Input Parameter
+%
+% mesh_size: Mesh size contains the mesh sizes in the three directions i.e.
+% x,y and z respectively.
+%
+% element_no: Element number for which local stiffnes matrix is to be
+% calculated.
+%
+% dimension: [thickness, width, height] Here all units are in mm.
+%
+% mesh_meta_data: It contains no. of division in height, width and depth
+% direction.
+%
+% D: Stress = D * Strain.
+%
+% global_stiff: Global Stiffness matrix
+
+function [jacobian, jacobian_testing, nodal_coordinates, pre_stiff, stiff, global_stiff] =  octa_element_stiff(mesh_size, element_no, dimension, mesh_meta_data, D, global_stiff)
 
 % For reference the images used:
 %        (z)                         (5) _____________ (8)
@@ -82,7 +99,7 @@ end
 %%% In the above example if element number = 8 then row tells us the row at
 %%% which the given element falls. row = floor(8/3) = 2.
 %%%%%%%%%%%%%%%%%%%%%%
-row = floor(element_no/mesh_meta_data(2));
+row = floor((element_no-1)/mesh_meta_data(2));
 
 % Index along y-direction of the element. The column number of the element.
 
@@ -100,6 +117,7 @@ end
 % Intial coordinates of the first vertex of the cube. Look at the above
 % referenced image for clearence. First nodes coordinates.
 initial_coord = [layer*mesh_size(1), (index-1)*mesh_size(2), row*mesh_size(3)];
+% disp(initial_coord);
 
 % Coordinates of all the elemental nodes in global coordinate system.
 x = [initial_coord(1);
@@ -158,7 +176,6 @@ for i = 1:3
 end
 
 inv_jaco = inv(jacobian_testing);
-ele_stiffness = 0;
 
 
 %%  Strain matrix B 
@@ -206,15 +223,16 @@ end
 
 %% Mapping of local nodes to global nodes
 % First node of element. It is mapped to corresponding x node in global.
-node_one = layer*(mesh_meta_data(2)+1)*(mesh_meta_data(3)+1) + row*mesh_meta_data(2) + index;
+node_one = layer*(mesh_meta_data(2)+1)*(mesh_meta_data(3)+1) + row*(mesh_meta_data(2)+1) + index;
+% disp(node_one);
 node_two = node_one + (mesh_meta_data(2)+1)*(mesh_meta_data(3)+1);
-mapping = [node_one, node_two, node_two + 1, node_one + 1, node_one + mesh_meta_data(2), node_two + mesh_meta_data(2), node_two + mesh_meta_data(2) + 1, node_one + mesh_meta_data(2) + 1];
+mapping = [node_one, node_two, node_two + 1, node_one + 1, node_one + mesh_meta_data(2) + 1, node_two + mesh_meta_data(2) + 1, node_two + mesh_meta_data(2) + 2, node_one + mesh_meta_data(2) + 2];
 
 %% Mapping of degree of freedom with global
 for i = 1:8
     final_mapping(3*(i-1)+1:3*i) = ((mapping(i) - 1) * 3) + 1 : mapping(i) * 3;
 end
-% disp(final_mapping);
+disp(final_mapping);
 for i = 1:24
     for j = 1:24
         global_stiff(final_mapping(i), final_mapping(j)) = global_stiff(final_mapping(i), final_mapping(j)) + stiff(i, j);
