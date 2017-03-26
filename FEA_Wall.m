@@ -3,15 +3,6 @@
 % Conventions used - 
 
 % Using hexahedron element Finite Element Analysis of a Wall.
-%      (z)                                   (5) ___________ (8)  
-%       |                                       |\          |\
-%       |                                       | \         | \
-%       |                                       |  \________|__\    
-%       |__________(y)                          |  |(6)     |  | (7)
-%      /                                    (1) |__|________|  | 
-%     /                                         \  |     (4)\  |   
-%    /                                           \ |         \ |   
-%  (x)                                         (2)\|__________\|(3)        
 
 clear variables;
 clear global;
@@ -49,8 +40,8 @@ else
     pois_ratio = .3;
     bar_dia = 12; % 12mm diameter bars
     div_x = 1;
-    div_y = 24;
-    div_z = 24;
+    div_y = 30;
+    div_z = 30;
 end
 
 % % Converting all the input in SI unit 
@@ -72,8 +63,7 @@ D = [ a b b 0 0 0;
       0 0 0 0 0 G;
     ];
 
-
-%% Mesh creation
+%% Stiffness Matrix Calculation
 
 % Our mesh size will be lower than or equal to size of diameter of the bars
 % such that one bar could come inside the cube element. For ease of
@@ -98,39 +88,27 @@ total_no_nodes = (div_x + 1)*(div_y + 1)*(div_z + 1);
 global_stiff = zeros(total_no_nodes*3, total_no_nodes*3);
 teemp11 = zeros(24, 24);
 
-% @Todo remove this part after confirming.
-for ii = 1:no_elements
-    element_no = ii;
-    [jacobian, jacobian_testing, nodal_coordinates, pre_stiff, stiff, global_stiff] = octa_element_stiff(mesh_size, element_no, dimension, mesh_meta_data, D, global_stiff);
-    if(jacobian == jacobian_testing)
-        just_checking(ii) = 1;
-    else
-        just_checking(ii) = 0;
-    end
-    if(teemp11 == stiff)
-        just_checking_stiff(ii) = 1;
-    else
-        just_checking_stiff(ii) = 0;
-    end
-    teemp11 = stiff;
-    disp(ii);
-end
+% Calculating the stiffness matrix once for all the different types of
+% element. Here considering one type of element only.
+[stiff] = octa_element_stiff(mesh_size, mesh_meta_data, D);
 
+% Calculating the global stiffness matrix
+[global_stiff] = global_stiff_calculation(mesh_meta_data, global_stiff, stiff, no_elements);
 
 %% Boundary conditions
 
 %Fixed from all the sides
 condition = 'all_fixed';
 displacement = sym('displacement', [total_no_nodes*3 1]);
-load = zeros(total_no_nodes*3, 1);
-load(floor(37), 1) = 1000;
+load = ones(total_no_nodes*3, 1)*1000;
 
 [displacement_, global_stiff_, load_] = boundary_conditions(displacement, condition, global_stiff, mesh_meta_data, load);
 
-displacement = solve(global_stiff_*displacement_ == load_, displacement_);
+% Not good to consider inverse so change it later with alternative sparse
+% factorization implementaion.
+displacement = inv(global_stiff_)*load_;
 
-
-displacemen	= vpa(struct2array(displacement));
+displacemen = displacement;
 a = size(displacemen);
 counter_new = 1;
 displ_mesh = zeros(div_y+1, div_z+1);
@@ -139,7 +117,7 @@ for i = 2:div_y
         displ_mesh(i, j) = displacemen(counter_new);
         counter_new = counter_new + 3;
     end
-end    % Loads will be considered later.
+end    
 figure;
 contourf(1:div_y+1, 1:div_z+1, displ_mesh);
 colorbar;
