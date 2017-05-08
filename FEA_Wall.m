@@ -1,7 +1,7 @@
-%% Anchal Pandey
+%% Anchal Pandey 
 % 201316114
 % Conventions used - 
-
+    
 % Using hexahedron element Finite Element Analysis of a Wall.
 
 clear variables;
@@ -40,8 +40,9 @@ else
     pois_ratio = .3;
     bar_dia = 12; % 12mm diameter bars
     div_x = 1;
-    div_y = 30;
-    div_z = 30;
+    div_y = 10;
+    div_z = 10;
+    condition = 'one_fixed';
 end
 
 % % Converting all the input in SI unit 
@@ -52,6 +53,7 @@ end
 % Dimensions matrix is in mm so to avoid float values.
 dimension = [thickness, width, height];
 mod_of_elas  = mod_of_elas * 10^6;
+divisions = [div_x, div_y, div_z];
 a = mod_of_elas * (1-pois_ratio) / ((1- 2 * pois_ratio) * (1 + pois_ratio));
 b = mod_of_elas * pois_ratio / ((1- 2 * pois_ratio) * (1 + pois_ratio));
 G = mod_of_elas / (2 * (1 + pois_ratio));
@@ -62,7 +64,8 @@ D = [ a b b 0 0 0;
       0 0 0 0 G 0;
       0 0 0 0 0 G;
     ];
-
+%% Create mesh 
+% createMesh(dimension, bar_dia, provided_divisions)
 %% Stiffness Matrix Calculation
 
 % Our mesh size will be lower than or equal to size of diameter of the bars
@@ -98,9 +101,10 @@ teemp11 = zeros(24, 24);
 %% Boundary conditions
 
 %Fixed from all the sides
-condition = 'all_fixed';
-displacement = sym('displacement', [total_no_nodes*3 1]);
-load = ones(total_no_nodes*3, 1)*1000;
+% displacement = sym('displacement', [total_no_nodes*3 1]);
+displacement = [1:total_no_nodes*3].';
+load = zeros(total_no_nodes*3, 1)*1000;
+load(1:3:end) = 1000;
 
 [displacement_, global_stiff_, load_] = boundary_conditions(displacement, condition, global_stiff, mesh_meta_data, load);
 
@@ -111,13 +115,39 @@ displacement = inv(global_stiff_)*load_;
 displacemen = displacement;
 a = size(displacemen);
 counter_new = 1;
-displ_mesh = zeros(div_y+1, div_z+1);
-for i = 2:div_y
-    for j = 2:div_z
-        displ_mesh(i, j) = displacemen(counter_new);
-        counter_new = counter_new + 3;
+counter_2 = 1;
+displ_mesh = zeros(div_z+1, div_y+1);
+
+% displ_mesh(2:div_y, 2:div_z) = displacemen(1:(div_y+1)*(div_z+1));
+
+for i = 1:div_z + 1
+    for j = 1:div_y+1
+        if(displacement_(counter_new) == counter_2)
+            displ_mesh(i, j) = displacemen(counter_new);
+            counter_2 = counter_2 + 3;
+            counter_new = counter_new + 3;
+        else
+            displ_mesh(i, j) = 0;
+            counter_2 = counter_2 + 3;
+        end
     end
-end    
+end
+
+% 
+% for i = 1:div_z + 1
+%     if(i == 1 || i == div_z + 1)
+%         for j = 1:div_y+1
+%             displ_mesh(i, j) = displacemen(counter_new);
+%             counter_new = counter_new + 3;
+%         end
+%     else
+%         for j = 2:div_y
+%             displ_mesh(i, j) = displacemen(counter_new);
+%             counter_new = counter_new + 3;
+%         end
+%     end
+% end    
+
 figure;
 contourf(1:div_y+1, 1:div_z+1, displ_mesh);
 colorbar;

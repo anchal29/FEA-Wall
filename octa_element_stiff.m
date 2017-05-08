@@ -17,7 +17,7 @@
 %
 % global_stiff: Global Stiffness matrix
 
-function [stiff] =  octa_element_stiff(mesh_size, mesh_meta_data, D)
+function [stiff] = octa_element_stiff(mesh_size, mesh_meta_data, D)
 
 % For reference the images used:
 %        (z)                         (5) _____________ (8)

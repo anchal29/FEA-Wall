@@ -32,11 +32,14 @@ for ii = 1:no_elements
         final_mapping(3*(i-1)+1:3*i) = ((mapping(i) - 1) * 3) + 1 : mapping(i) * 3;
     end
 %     disp(final_mapping);
-    for i = 1:24
-        for j = 1:24
-            global_stiff(final_mapping(i), final_mapping(j)) = global_stiff(final_mapping(i), final_mapping(j)) + stiff(i, j);
-        end
-    end
+
+    global_stiff(final_mapping,final_mapping) = global_stiff(final_mapping,final_mapping) + stiff;
+%    for i = 1:24
+%        for j = 1:24
+%            global_stiff(final_mapping(i), final_mapping(j)) = global_stiff(final_mapping(i), final_mapping(j)) + stiff(i, j);
+%        end
+%    end
+
 %     disp(ii);
 end
 
