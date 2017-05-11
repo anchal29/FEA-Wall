@@ -221,5 +221,5 @@ for i = 1:length(weights)
     temp_pre_stiff = subs(temp_pre_stiff, zeta, temp(i, 1));
     temp_pre_stiff = subs(temp_pre_stiff, eta, temp(i, 2));
     temp_pre_stiff = subs(temp_pre_stiff, nu, temp(i, 3));
-     stiff = stiff + vpa(temp_pre_stiff);
+    stiff = stiff + vpa(temp_pre_stiff);
 end

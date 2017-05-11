@@ -30,16 +30,14 @@ mesh_size = 50 * floor((dimension./divisions)/50);
 %% Create nodal connectivity and coordinate matrices
 
 % Now we need to find out all the coordinate values for each elements.
-y_coord = helper(mesh_size(2), vert_bars_poistion, reinforcment_info(1,1), dimension(2));
-z_coord = helper(mesh_size(3), horz_bars_poistion, reinforcment_info(2,1), dimension(3));
-x_coord = get_x(dimension(1), reinforcment_info, mesh_size(1));
+% y_coord = helper(mesh_size(2), vert_bars_poistion, reinforcment_info(1,1), dimension(2));
+% z_coord = helper(mesh_size(3), horz_bars_poistion, reinforcment_info(2,1), dimension(3));
 % disp(y_coord);
 % disp(z_coord);
 % disp(mesh_size);
-% disp(x_coord);
-
-nodal_coordinate = combvec(y_coord, z_coord, x_coord);
-nodal_connect = 0;
+% disp(node_y == y_coord);
+x_coord = get_x(dimension(1), reinforcment_info, mesh_size(1));
+disp(x_coord);
 end
 
 function [coordinates] = helper(mesh_size, bars_pos, bar_dia, dimension)
@@ -60,7 +58,7 @@ function [coordinates] = helper(mesh_size, bars_pos, bar_dia, dimension)
         else
             coordinates(end + 1) = coord_val;
         end
-        flag = coordinates(end) >= dimension;
+        flag = coord_val >= dimension;
     end
 end
 
@@ -83,8 +81,6 @@ else
     bar_dia = [reinforcment_info(2,1), reinforcment_info(1,1), reinforcment_info(1,1), reinforcment_info(2,1)];
     bars_pos = [clear_cover, clear_cover + reinforcment_info(2,1), dimension - clear_cover - sum(reinforcment_info(:,1)), dimension - clear_cover - reinforcment_info(2,1)];
 end
-% disp(bars_pos)
-% disp(bar_dia) 
 x_coordinates  = helper2(mesh_size, bars_pos, bar_dia, dimension);
 end
 
@@ -94,21 +90,14 @@ function [coordinates] = helper2(mesh_size, bars_pos, bar_dia, dimension)
     index = 1;
     fine_meshing = 2;
     flag = 0;
-    choice = 1;
-    temp_mat = [-fine_meshing:0;0:fine_meshing];
+    
+    temp_mat = [-fine_meshing:0;0:fine_meshing]
     while(flag == 0)
         coord_val = min(coordinates(end) + mesh_size, dimension);
-%         disp(index)
-%         disp(coord_val);
         if(index > length(bars_pos))
             coordinates(end + 1) = coord_val;
         elseif(coord_val >= bars_pos(index) - fine_meshing*bar_dia(index))
-            temp = temp_mat(choice, :);
-            if(choice == 1)
-                choice = 2;
-            else
-                choice = 1;
-            end
+            temp = temp_mat(index);
             % Considering fine_meshing number of elements around the bars.
             % So as to get finer mesh around it.
             coordinates = [coordinates, bars_pos(index) + bar_dia(index)*temp];
@@ -116,6 +105,6 @@ function [coordinates] = helper2(mesh_size, bars_pos, bar_dia, dimension)
         else
             coordinates(end + 1) = coord_val;
         end
-        flag = coordinates(end) >= dimension;
+        flag = coord_val >= dimension;
     end
 end

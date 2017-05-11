@@ -84,7 +84,8 @@ div_x = 1; % This should vary according to the bars positioning.
 divisions = [div_x, div_y, div_z];
 vert_side_cover = 75;% Veticle bars side cover.
 horz_side_cover = 75;
-reinforcment_info = [vertical_dia, vertical_spacing, vert_side_cover;
+reinforcment_info = [
+                     vertical_dia, vertical_spacing, vert_side_cover;
                      horz_dia    , horz_spacing    , horz_side_cover];
 %% Create mesh
 [nodal_connect, nodal_coordinate] = createMesh(dimension, divisions, reinforcment_info);
