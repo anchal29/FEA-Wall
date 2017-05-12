@@ -49,7 +49,7 @@ else
     div_x = 1;
     div_y = 15;
     div_z = 15;
-    condition = 'all_fixed';
+    condition = 'two_fixed_opposite';
     vertical_spacing = 250; % 250 mm soacing of verticle reinforcement.
     horz_spacing = 300; % 300 mm soacing of horizontal reinforcement.
     vertical_dia = 6; % 6mm bars used for verticle reinforcement.
@@ -175,4 +175,4 @@ contourf(1:div_y+1, 1:div_z+1, displ_mesh);
 colorbar;
 figure;
 surf(1:div_y+1, 1:div_z+1, displ_mesh);
-colorbar;   
+colorbar;
