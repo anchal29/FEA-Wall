@@ -8,7 +8,7 @@
 % reinforcment_info = [vertical_dia, vertical_spacing, vert_side_cover;
 %                      horz_dia    , horz_spacing    , horz_side_cover];
 
-function [nodal_connect, nodal_coordinate] = createMesh(dimension, divisions, reinforcment_info)
+function [nodal_connect, nodal_coordinate, faces] = createMesh(dimension, divisions, reinforcment_info)
 % Total number of bars in y and z direction
 num_bars = floor((dimension(2:3) - 2*reinforcment_info(:,3).')./reinforcment_info(:,2).');
 
@@ -64,7 +64,14 @@ for ii = 1:no_elements
     % disp(node_one);
     node_two = node_one + (mesh_meta_data(2)+1)*(mesh_meta_data(3)+1);
     mapping = [node_one, node_two, node_two + 1, node_one + 1, node_one + mesh_meta_data(2) + 1, node_two + mesh_meta_data(2) + 1, node_two + mesh_meta_data(2) + 2, node_one + mesh_meta_data(2) + 2];
+    face = [mapping(1) mapping(2) mapping(6) mapping(5);
+            mapping(2) mapping(3) mapping(7) mapping(6);
+            mapping(3) mapping(4) mapping(8) mapping(7);
+            mapping(4) mapping(1) mapping(5) mapping(8);
+            mapping(1) mapping(2) mapping(3) mapping(4);
+            mapping(5) mapping(6) mapping(7) mapping(8)];
     nodal_connect(ii, :) = mapping;
+    faces(6*(ii-1)+1:6*ii, :) = face;
 end
 % nodal_connect = 0;
 end

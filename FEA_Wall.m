@@ -87,7 +87,10 @@ horz_side_cover = 75;
 reinforcment_info = [vertical_dia, vertical_spacing, vert_side_cover;
                      horz_dia    , horz_spacing    , horz_side_cover];
 %% Create mesh
-[nodal_connect, nodal_coordinate] = createMesh(dimension, divisions, reinforcment_info);
+[nodal_connect, nodal_coordinate, faces] = createMesh(dimension, divisions, reinforcment_info);
+
+%% Draw the mesh
+draw3DMesh(nodal_coordinate, faces);
 
 %% Stiffness Matrix Calculation
 % Our mesh size will be lower than or equal to size of diameter of the bars
