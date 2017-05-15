@@ -2,22 +2,15 @@
 
 % Input Parameter
 %
-% mesh_size: Mesh size contains the mesh sizes in the three directions i.e.
-% x,y and z respectively.
-%
-% element_no: Element number for which local stiffnes matrix is to be
-% calculated.
-%
-% dimension: [thickness, width, height] Here all units are in mm.
-%
-% mesh_meta_data: It contains no. of division in height, width and depth
-% direction.
+% element_nodal_coordinates: The x, y and z coordinates of the element
+% whose stiffness matrix is to be calculated.
 %
 % D: Stress = D * Strain.
 %
-% global_stiff: Global Stiffness matrix
+% Output parameter
+% stiff: Global Stiffness matrix
 
-function [stiff] = octa_element_stiff(mesh_size, mesh_meta_data, D)
+function [stiff] = octa_element_stiff(D, element_nodal_coordinates)
 
 % For reference the images used:
 %        (z)                         (5) _____________ (8)
@@ -44,116 +37,6 @@ for i = 1:8
     shape_function_matrix = [shape_function_matrix,N(i)*eye(3)];
 end
 
-%% Element's Meta Data Calculation
-
-element_no = 1;
-%%%%%%%%%%%%%%%%%%%%%%
-% Consider the following example, mesh numbering is considered in the
-% similar manner:
-%  ___________ 
-% | 7 | 8 | 9 |
-% | 4 | 5 | 6 |
-% |_1_|_2_|_3_| (1st Layer, equivalent to 0th layer in assumed variable) 
-
-%  ______________ 
-% | 16 | 17 | 18 |
-% | 13 | 14 | 15 |
-% |_10_|_11_|_12_| (2nd Layer, equivalent to 1st layer in assumed variable)
-%
-% Here the numbers reperesents the element number and layer is the layer
-% number accross depth side i.e. in x-direction.
-%%%%%%%%%%%%%%%%%%%%%%
-
-% layer is the layer of cube mesh repeated over the depth. Layer = 0 would
-% mean first layer and 1 would mean the second layer behind the first one
-% and so on. Starts from 0.
-
-%%%%%%%%%%%%%%%%%%%%%%
-%%% In the above example if element number = 14 then variable layer = floor
-%%% (13/(3*3)) = floor(1.444) = 1 or for 9 = floor(8/9) = 0.
-%%%%%%%%%%%%%%%%%%%%%%
-layer = floor((element_no-1)/(mesh_meta_data(2)*mesh_meta_data(3)));
-
-% Element number updated to older element number modulus the (division_y x
-% division_z). The updated element number will be less than total number of
-% elements present in a layer.
-% (Here we mean that numbering will become equivalent to first layer
-% numbering).
-
-% Store the actual element for future use.
-temp_ele_no = element_no;
-
-%%%%%%%%%%%%%%%%%%%%%%
-%%% In the above example if element number = 14 then updated element_no =
-%%% mod(14, 9) = 5. If element number = 18 then updated element_no = 3*3 = 
-%%% 9 as then temp will become 0.
-%%%%%%%%%%%%%%%%%%%%%%
-temp = mod(element_no, mesh_meta_data(2)*mesh_meta_data(3));
-
-if temp
-    element_no = temp;
-else
-    element_no = mesh_meta_data(2)*mesh_meta_data(3);
-end
-
-% Row at which the element falls. Starts from 0.
-
-%%%%%%%%%%%%%%%%%%%%%%
-%%% In the above example if element number = 8 then row tells us the row at
-%%% which the given element falls. row = floor(8/3) = 2.
-%%%%%%%%%%%%%%%%%%%%%%
-row = floor((element_no-1)/mesh_meta_data(2));
-
-% Index along y-direction of the element. The column number of the element.
-
-%%%%%%%%%%%%%%%%%%%%%%
-%%% In the above example if element number = 8 then index = mod(8, 3) = 2
-%%% i.e. the second column and if element number = 9 then index = 3;
-%%%%%%%%%%%%%%%%%%%%%%
-temp2 = mod(element_no, mesh_meta_data(2));
-if temp2
-    index = temp2;
-else
-    index = mesh_meta_data(2);
-end
-
-% Intial coordinates of the first vertex of the cube. Look at the above
-% referenced image for clearence. First nodes coordinates.
-initial_coord = [layer*mesh_size(1), (index-1)*mesh_size(2), row*mesh_size(3)];
-% disp(initial_coord);
-
-% Coordinates of all the elemental nodes in global coordinate system.
-x = [initial_coord(1);
-    initial_coord(1)+mesh_size(1);
-    initial_coord(1)+mesh_size(1);
-    initial_coord(1);
-    initial_coord(1);
-    initial_coord(1)+mesh_size(1);
-    initial_coord(1)+mesh_size(1);
-    initial_coord(1);
-    ];
-       
-y = [initial_coord(2);
-    initial_coord(2);    
-    initial_coord(2)+mesh_size(2);
-    initial_coord(2)+mesh_size(2);
-    initial_coord(2);
-    initial_coord(2);
-    initial_coord(2)+mesh_size(2);
-    initial_coord(2)+mesh_size(2);
-    ];
-
-z = [initial_coord(3);
-    initial_coord(3);
-    initial_coord(3);
-    initial_coord(3);
-    initial_coord(3)+mesh_size(3);
-    initial_coord(3)+mesh_size(3);
-    initial_coord(3)+mesh_size(3);
-    initial_coord(3)+mesh_size(3);
-    ];
-nodal_coordinates = [x, y, z];
-
 %% Jacobian Matrix
 jacobian = sym(zeros(3,3));
 intrinsic_coord = [zeta, eta, nu];
@@ -164,7 +47,7 @@ intrinsic_coord = [zeta, eta, nu];
 for i = 1:3
     for j = 1:3
         for k = 1:8
-            jacobian(i,j) = jacobian(i,j) + nodal_coordinates(k, j)*diff(N(k),intrinsic_coord(i));
+            jacobian(i,j) = jacobian(i,j) + element_nodal_coordinates(k, j)*diff(N(k),intrinsic_coord(i));
         end
     end
 end
@@ -175,7 +58,7 @@ end
 
 jacobian_testing = sym(zeros(3,3));
 for i = 1:3
-    jacobian_testing(i, i) = diff(N, intrinsic_coord(i))*nodal_coordinates(:, i);
+    jacobian_testing(i, i) = diff(N, intrinsic_coord(i))*element_nodal_coordinates(:, i);
 end
 
 inv_jaco = inv(jacobian_testing);
