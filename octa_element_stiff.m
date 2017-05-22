@@ -10,7 +10,7 @@
 % Output parameter
 % stiff: Global Stiffness matrix
 
-function [stiff] = octa_element_stiff(D, element_nodal_coordinates)
+function [stiff] = octa_element_stiff(mod_of_elas, element_nodal_coordinates)
 
 % For reference the images used:
 %        (z)                         (5) _____________ (8)
@@ -75,7 +75,7 @@ end
 % Starin matrix calulation.
 % strain_mat_initial contains the differentiation of shape funsiton wrt to
 % the actual coordinates i.e. x,y and z
-strain_mat_initial = inv_jaco*diff_row;
+strain_mat_initial = jacobian_testing\diff_row;
 
 for i = 1 : 8
     strain_mat(:, 3*(i-1) + 1: 3*i) = [
@@ -87,6 +87,18 @@ for i = 1 : 8
             diff_row(2, i)  diff_row(1, i)  0;
         ];
 end
+
+%
+a = mod_of_elas * (1-pois_ratio) / ((1- 2 * pois_ratio) * (1 + pois_ratio));
+b = mod_of_elas * pois_ratio / ((1- 2 * pois_ratio) * (1 + pois_ratio));
+G = mod_of_elas / (2 * (1 + pois_ratio));
+D = [ a b b 0 0 0;
+      b a b 0 0 0;
+      b b a 0 0 0;
+      0 0 0 G 0 0;
+      0 0 0 0 G 0;
+      0 0 0 0 0 G;
+    ];
 
 % Stress Strain relation, D matrix (Stress = D * Strain in 3 Dimension)
 pre_stiff = strain_mat.' * D * strain_mat;

@@ -29,16 +29,9 @@ mesh_size = 50 * floor((dimension./divisions)/50);
 y_coord = helper(mesh_size(2), vert_bars_poistion, reinforcment_info(1,1), dimension(2));
 z_coord = helper(mesh_size(3), horz_bars_poistion, reinforcment_info(2,1), dimension(3));
 x_coord = get_x(dimension(1), reinforcment_info, mesh_size(1));
-% disp(y_coord);
-% disp(z_coord);
-% disp(mesh_size);
-% disp(x_coord);
 nodal_coordinate = combvec(y_coord, z_coord, x_coord);
-
 no_elements = (length(x_coord) - 1) * (length(y_coord) - 1) * (length(z_coord) - 1);
 total_no_nodes = length(nodal_coordinate);
-% disp(no_elements);
-% disp(total_no_nodes);
 
 mesh_meta_data = [length(x_coord) - 1, length(y_coord) - 1, length(z_coord) - 1];
 for ii = 1:no_elements

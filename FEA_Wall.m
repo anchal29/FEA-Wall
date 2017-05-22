@@ -64,16 +64,6 @@ end
 % Dimensions matrix is in mm so to avoid float values.
 dimension = [thickness, width, height];
 mod_of_elas  = mod_of_elas * 10^6;
-a = mod_of_elas * (1-pois_ratio) / ((1- 2 * pois_ratio) * (1 + pois_ratio));
-b = mod_of_elas * pois_ratio / ((1- 2 * pois_ratio) * (1 + pois_ratio));
-G = mod_of_elas / (2 * (1 + pois_ratio));
-D = [ a b b 0 0 0;
-      b a b 0 0 0;
-      b b a 0 0 0;
-      0 0 0 G 0 0;
-      0 0 0 0 G 0;
-      0 0 0 0 0 G;
-    ];
 
 %% Naive assumptions
 % It seems that 15 divisions across y and z direction are enough. So
@@ -93,32 +83,20 @@ reinforcment_info = [vertical_dia, vertical_spacing, vert_side_cover;
 draw3DMesh(nodal_coordinate, faces);
 
 %% Stiffness Matrix Calculation
-% Our mesh size will be lower than or equal to size of diameter of the bars
-% such that one bar could come inside the cube element. For ease of
-% calculation considering the bar to be square of side equal to 
 
-% Here simple assuming the cube side to be equal to the diameter of bar for
-% ease.
-cube_side_temp = bar_dia;
+% Total number of elements will be equal to the the size of the
+% nodal_coordinate matrix.
+no_elements = length(nodal_connect);
 
-% Total number of elements will be equal to the multiplication of the
-% divisions in all the directions.
-no_elements = div_x * div_y * div_z;
+[distinct_elements, distinct_coordinates] = getDistinctElements(nodal_coordinate, nodal_connect);
 
-% Mesh size contains the mesh sizes in the three directions i.e. x,y and z
-% respectively.
-mesh_size = [dimension(1)/div_x, dimension(2)/div_y, dimension(3)/div_z]*10^-3;
-
-% mesh_meta_data contains no. of division in height, width and depth
-% direction.
-mesh_meta_data = [div_x, div_y, div_z];
-total_no_nodes = (div_x + 1)*(div_y + 1)*(div_z + 1);
+total_no_nodes = length(nodal_coordinate);
 global_stiff = zeros(total_no_nodes*3, total_no_nodes*3);
 teemp11 = zeros(24, 24);
 
 % Calculating the stiffness matrix once for all the different types of
 % element. Here considering one type of element only.
-[stiff] = octa_element_stiff(mesh_size, mesh_meta_data, D);
+[stiff] = octa_element_stiff(mod_of_elas, nodal_coordinate());
 
 % Calculating the global stiffness matrix
 [global_stiff] = global_stiff_calculation(mesh_meta_data, global_stiff, stiff, no_elements);
