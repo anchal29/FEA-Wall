@@ -1,3 +1,4 @@
+function [gaussian_points, weights] =  gauss_quadrature(num_points) 
 % This function returns the weight and location of the gaussian points
 % using which numerical integral of an definite integral can be caluclated.
 
@@ -17,7 +18,7 @@
 %%%           gaussian points will give the definite integral value.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-function [gaussian_points, weights] =  gauss_quadrature(num_points) 
+
     switch num_points
         case 1
             weights = 8; % 2 x 2 x 2

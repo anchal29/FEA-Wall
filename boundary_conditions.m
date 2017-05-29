@@ -1,7 +1,7 @@
 % This function returns applies the given boundary condition to
 % displacement, load and stiffness matrices.
 
-function [displacement, global_stiff, load] =  boundary_conditions(displacement, condition, global_stiff,mesh_meta_data, load)
+function [displacement, global_stiff, load] =  boundary_conditions(displacement, condition, global_stiff, mesh_meta_data, load)
     switch condition
         case 'all_fixed'
             for i = mesh_meta_data(1)+1:-1:1

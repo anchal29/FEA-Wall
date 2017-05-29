@@ -56,6 +56,7 @@ else
     horz_dia = 6;
 end
 
+
 % % Converting all the input in SI unit 
 % thickness = thickness * 10^(-3);
 % mod_of_elas= mod_of_elas * 10^6;
@@ -87,20 +88,27 @@ draw3DMesh(nodal_coordinate, faces);
 % Total number of elements will be equal to the the size of the
 % nodal_coordinate matrix.
 no_elements = length(nodal_connect);
+element_mod_of_elas = repmat(mod_of_elas, 1, no_elements);
 
-[distinct_elements, distinct_coordinates] = getDistinctElements(nodal_coordinate, nodal_connect);
+[distinct_elements, distinct_coordinates] = getDistinctElements(nodal_coordinate, nodal_connect, element_mod_of_elas);
 
 total_no_nodes = length(nodal_coordinate);
-global_stiff = zeros(total_no_nodes*3, total_no_nodes*3);
+global_stiff = sparse(total_no_nodes*3, total_no_nodes*3);
 teemp11 = zeros(24, 24);
 
+tic
 % Calculating the stiffness matrix once for all the different types of
-% element. Here considering one type of element only.
-[stiff] = octa_element_stiff(mod_of_elas, nodal_coordinate());
+% element.
+for i = 1:length(distinct_elements)
+    [stiff(:, :, i)] = octa_element_stiff(element_mod_of_elas(distinct_elements(i)), nodal_coordinate(nodal_connect(distinct_elements(i),:).', :));
+end
+toc
 
+%%
 % Calculating the global stiffness matrix
-[global_stiff] = global_stiff_calculation(mesh_meta_data, global_stiff, stiff, no_elements);
-
+tic
+[global_stiff] = global_stiff_calculation(nodal_coordinate, nodal_connect, element_mod_of_elas, distinct_coordinates, distinct_elements, stiff, global_stiff);
+toc
 %% Boundary conditions
 
 %Fixed from all the sides

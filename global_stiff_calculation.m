@@ -1,46 +1,19 @@
+function [global_stiff] = global_stiff_calculation(nodal_coordinate, nodal_connect, element_mod_of_elas, distinct_coordinates, distinct_elements, stiff, global_stiff)
 % Computes global stiffness matrix. Appends the element stiffness matrix
 % into global stiffness matrix.
 
-function [global_stiff] = global_stiff_calculation(mesh_meta_data, global_stiff, stiff, no_elements)
-
+no_elements = length(nodal_connect);
 for ii = 1:no_elements
-    element_no = ii;    
-    layer = floor((element_no-1)/(mesh_meta_data(2)*mesh_meta_data(3)));
-    temp = mod(element_no, mesh_meta_data(2)*mesh_meta_data(3));
-    if temp
-        element_no = temp;
-    else
-        element_no = mesh_meta_data(2)*mesh_meta_data(3);
-    end
-    row = floor((element_no-1)/mesh_meta_data(2));
-    temp2 = mod(element_no, mesh_meta_data(2));
-    if temp2
-        index = temp2;
-    else
-        index = mesh_meta_data(2);
+    dx = nodal_coordinate(nodal_connect(ii, 2), 1) - nodal_coordinate(nodal_connect(ii, 1), 1);
+    dy = nodal_coordinate(nodal_connect(ii, 3), 2) - nodal_coordinate(nodal_connect(ii, 2), 2);
+    dz = nodal_coordinate(nodal_connect(ii, 5), 3) - nodal_coordinate(nodal_connect(ii, 1), 3);
+    [~,Locb] = ismember([dx, dy, dz, element_mod_of_elas(ii)], distinct_coordinates, 'rows');
+    final_mapping = zeros(1, 24);
+
+    for j = 1:8
+        final_mapping(3*(j-1)+1:3*j) = [3*(nodal_connect(ii, j)-1)+1:3*nodal_connect(ii, j)];
     end
 
-    %% Mapping of local nodes to global nodes
-    % First node of element. It is mapped to corresponding x node in global.
-    node_one = layer*(mesh_meta_data(2)+1)*(mesh_meta_data(3)+1) + row*(mesh_meta_data(2)+1) + index;
-    % disp(node_one);
-    node_two = node_one + (mesh_meta_data(2)+1)*(mesh_meta_data(3)+1);
-    mapping = [node_one, node_two, node_two + 1, node_one + 1, node_one + mesh_meta_data(2) + 1, node_two + mesh_meta_data(2) + 1, node_two + mesh_meta_data(2) + 2, node_one + mesh_meta_data(2) + 2];
-
-    %% Mapping of degree of freedom with global
-    for i = 1:8
-        final_mapping(3*(i-1)+1:3*i) = ((mapping(i) - 1) * 3) + 1 : mapping(i) * 3;
-    end
-%     disp(final_mapping);
-
-    global_stiff(final_mapping,final_mapping) = global_stiff(final_mapping,final_mapping) + stiff;
-%    for i = 1:24
-%        for j = 1:24
-%            global_stiff(final_mapping(i), final_mapping(j)) = global_stiff(final_mapping(i), final_mapping(j)) + stiff(i, j);
-%        end
-%    end
-
-%     disp(ii);
+    global_stiff(final_mapping,final_mapping) = global_stiff(final_mapping,final_mapping) + stiff(:, :, Locb);
 end
-
 end
