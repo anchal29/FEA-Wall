@@ -1,16 +1,21 @@
-% Use patch to generate the 3D mesh for the given wall.
 function draw3DMesh(nodal_coordinate, faces)
+%**************************************************************************
+% Use patch to generate the 3D mesh for the given wall.
+%**************************************************************************
+%
+% Input parameters:
+% nodal_coordinate - @todo
+% faces            - @todo
+
 figure;
 patch('Vertices',nodal_coordinate,'Faces',faces,...
     'FaceColor','c');
 axis off;
 axis equal;
-cameratoolbar('SetCoordSys','y');
+cameratoolbar('SetCoordSys','z');
 cameratoolbar('setmode','orbit');
 ax = gca;
-ax.CameraPosition = [210734.89430597893 -124053.20007221 62763.93011415327];
-ax.CameraTarget = [115 2500 1500];
-ax.CameraUpVector = [-0.30161994759158284 0.21986843807447823 0.9277301747563999];
-% ax.CameraViewAngle = 
-% ax.
+ax.CameraPosition = [-179534.00986074534 128291.59093640426 128119.23378678535];
+ax.CameraUpVector = [0.40957602214449595 -0.28678821817552286 0.8660254037844387];
+ax.CameraViewAngle = 1.4342442304781926;
 end

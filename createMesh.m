@@ -1,14 +1,21 @@
-% Function to create mesh for the provided wall considering the
-% reinforcement detailings are also provided.
+function [nodal_connect, nodal_coordinate, faces, mesh_meta_data] = createMesh(dimension, divisions, reinforcment_info)
+%**************************************************************************
+% Creates mesh for the provided wall.
 % Returns the nodal connectivity and nodal coordinate matrices.
-
+%**************************************************************************
+%
 % Input parameters:
-% dimension = [thickness, width, height];
-% divisions = [div_x, div_y, div_z];
-% reinforcment_info = [vertical_dia, vertical_spacing, vert_side_cover;
+% dimension         - [thickness, width, height];
+% divisions         - [div_x, div_y, div_z];
+% reinforcment_info - [vertical_dia, vertical_spacing, vert_side_cover;
 %                      horz_dia    , horz_spacing    , horz_side_cover];
+%
+% Output:
+% nodal_connect     - @todo
+% nodal_coordinate  - @todo
+% faces             - @todo
+% mesh_meta_data    - @todo
 
-function [nodal_connect, nodal_coordinate, faces] = createMesh(dimension, divisions, reinforcment_info)
 % Total number of bars in y and z direction
 num_bars = floor((dimension(2:3) - 2*reinforcment_info(:,3).')./reinforcment_info(:,2).');
 

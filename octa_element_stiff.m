@@ -1,16 +1,16 @@
 function [stiff] = octa_element_stiff(mod_of_elas, element_nodal_coordinates)
-%*****************************************
-% Computes the element stiffness matrix.**
-%*****************************************
+%**************************************************************************
+% Computes the element stiffness matrix.
+%**************************************************************************
 %
-% Input Parameter
-% element_nodal_coordinates: The x, y and z coordinates of the element
-% whose stiffness matrix is to be calculated.
+% Input parameters:
+% element_nodal_coordinates - The x, y and z coordinates of the element
+%                             whose stiffness matrix is to be calculated.
+% mod_of_elas               - The modulus of elasticity of the particular 
+%                             element.
 %
-% mod_of_elas: The modulus of elasticity of the particular element.
-%
-% Output parameter
-% stiff: Global Stiffness matrix
+% Output:
+% stiff                     - Element stiffness matrix
 
 % For reference the images used:
 %        (z)                         (5) _____________ (8)

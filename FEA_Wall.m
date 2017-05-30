@@ -49,7 +49,7 @@ else
     div_x = 1;
     div_y = 15;
     div_z = 15;
-    condition = 'two_fixed_opposite';
+    condition = 'all_fixed';
     vertical_spacing = 250; % 250 mm soacing of verticle reinforcement.
     horz_spacing = 300; % 300 mm soacing of horizontal reinforcement.
     vertical_dia = 6; % 6mm bars used for verticle reinforcement.
@@ -78,7 +78,7 @@ horz_side_cover = 75;
 reinforcment_info = [vertical_dia, vertical_spacing, vert_side_cover;
                      horz_dia    , horz_spacing    , horz_side_cover];
 %% Create mesh
-[nodal_connect, nodal_coordinate, faces] = createMesh(dimension, divisions, reinforcment_info);
+[nodal_connect, nodal_coordinate, faces, mesh_meta_data] = createMesh(dimension, divisions, reinforcment_info);
 
 %% Draw the mesh
 draw3DMesh(nodal_coordinate, faces);
@@ -93,21 +93,25 @@ element_mod_of_elas = repmat(mod_of_elas, 1, no_elements);
 [distinct_elements, distinct_coordinates] = getDistinctElements(nodal_coordinate, nodal_connect, element_mod_of_elas);
 
 total_no_nodes = length(nodal_coordinate);
-global_stiff = sparse(total_no_nodes*3, total_no_nodes*3);
+% global_stiff = sparse(total_no_nodes*3, total_no_nodes*3);
 teemp11 = zeros(24, 24);
+
+stiff = zeros(1, 24*24, length(distinct_elements));
 
 tic
 % Calculating the stiffness matrix once for all the different types of
 % element.
 for i = 1:length(distinct_elements)
-    [stiff(:, :, i)] = octa_element_stiff(element_mod_of_elas(distinct_elements(i)), nodal_coordinate(nodal_connect(distinct_elements(i),:).', :));
+    [ele_stiff] = octa_element_stiff(element_mod_of_elas(distinct_elements(i)), nodal_coordinate(nodal_connect(distinct_elements(i),:).', :));
+    ele_stiff = ele_stiff(:).';
+    stiff(:, :, i) = ele_stiff;
 end
 toc
 
 %%
 % Calculating the global stiffness matrix
 tic
-[global_stiff] = global_stiff_calculation(nodal_coordinate, nodal_connect, element_mod_of_elas, distinct_coordinates, distinct_elements, stiff, global_stiff);
+[global_stiff] = global_stiff_calculation(nodal_coordinate, nodal_connect, element_mod_of_elas, distinct_coordinates, distinct_elements, stiff);
 toc
 %% Boundary conditions
 
@@ -121,18 +125,18 @@ load(1:3:end) = 1000;
 
 % Not good to consider inverse so change it later with alternative sparse
 % factorization implementaion.
-displacement = inv(global_stiff_)*load_;
-
+displacement = global_stiff_\load_;
+%%
 displacemen = displacement;
 a = size(displacemen);
 counter_new = 1;
 counter_2 = 1;
-displ_mesh = zeros(div_z+1, div_y+1);
+displ_mesh = zeros(mesh_meta_data(3)+1, mesh_meta_data(2)+1);
 
 % displ_mesh(2:div_y, 2:div_z) = displacemen(1:(div_y+1)*(div_z+1));
 
-for i = 1:div_z + 1
-    for j = 1:div_y+1
+for i = 1:mesh_meta_data(3)+ 1
+    for j = 1:mesh_meta_data(2)+1
         if(displacement_(counter_new) == counter_2)
             displ_mesh(i, j) = displacemen(counter_new);
             counter_2 = counter_2 + 3;
@@ -144,24 +148,9 @@ for i = 1:div_z + 1
     end
 end
 
-% 
-% for i = 1:div_z + 1
-%     if(i == 1 || i == div_z + 1)
-%         for j = 1:div_y+1
-%             displ_mesh(i, j) = displacemen(counter_new);
-%             counter_new = counter_new + 3;
-%         end
-%     else
-%         for j = 2:div_y
-%             displ_mesh(i, j) = displacemen(counter_new);
-%             counter_new = counter_new + 3;
-%         end
-%     end
-% end    
-
 figure;
-contourf(1:div_y+1, 1:div_z+1, displ_mesh);
+contourf(1:mesh_meta_data(2)+1, 1:mesh_meta_data(3)+1, displ_mesh);
 colorbar;
 figure;
-surf(1:div_y+1, 1:div_z+1, displ_mesh);
+surf(1:mesh_meta_data(2)+1, 1:mesh_meta_data(3)+1, displ_mesh);
 colorbar;

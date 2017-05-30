@@ -1,18 +1,25 @@
 function [distinct_elements, distinct_coordinates] = getDistinctElements(nodal_coordinate, nodal_connect, element_mod_of_elas)
+%**************************************************************************
 % Function to get distinct elements calculated from the provided nodal
 % connectivity and nodal coordinate matrices.
-
-%  Input parameters:
-%  > nodal_connect - Nodal connectivity matrix in which each row has the nodes
-%  present in that element. Row 1 => Element 1 => Terms in row 1 are the
-%  nodes present in element 1 in counter-clockwise order.
-%  > nodal_coordinate - Nodal coordinate matrix having each column as the x,y
-%  and z coordinate value of the repective node. 
-%     nodal_coordinate(1, 1): y coordinate value for node 1
-%     nodal_coordinate(2, 1): z coordinate value for node 1
-%     nodal_coordinate(3, 1): x coordinate value for node 1
-%  > element_mod_of_elas - A vector containing modulus of elasticity value 
-% of all the elements.
+%**************************************************************************
+% 
+% Input parameters:
+% nodal_connect       - Nodal connectivity matrix in which each row has the
+%                       nodes present in that element.
+%                       Row 1 => Element 1 => Terms in row 1 are the nodes
+%                       present in element 1 in counter-clockwise order.
+% nodal_coordinate    - Nodal coordinate matrix having each column as the
+%                       x,y and z coordinate value of the repective node. 
+%                       nodal_coordinate(1, 1): y coordinate value for node 1
+%                       nodal_coordinate(2, 1): z coordinate value for node 1
+%                       nodal_coordinate(3, 1): x coordinate value for node 1
+% element_mod_of_elas - A vector containing modulus of elasticity value of
+%                       all the elements.
+% 
+% Output:
+% distinct_elements   - @todo
+% distinct_coordinate - @todo
 
 distinct_coordinates = [];
 distinct_elements = [];

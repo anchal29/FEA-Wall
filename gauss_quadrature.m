@@ -1,23 +1,23 @@
 function [gaussian_points, weights] =  gauss_quadrature(num_points) 
-% This function returns the weight and location of the gaussian points
-% using which numerical integral of an definite integral can be caluclated.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% Arguments passed to the function:
-%%% num_points - Number of gaussian points to be used. It is assumed that
-%%%              in all the directions same number of points will be 
-%%%              present.
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% Output from the function:
-%%% gaussian_points - Location of the gaussian points for a given number of
-%%%                   gaussian points. This gives a matrix of size m x 3
-%%%                   where m is according to the number of gaussian points
-%%%                   integral.
-%%% weights - Weights at all those gaussian points. By adding up the 
-%%%           function values multiplied with the wieghts at all the 
-%%%           gaussian points will give the definite integral value.
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+%**************************************************************************
+% Returns the weight and location of the gaussian points using which
+% numerical integral of an definite integral can be caluclated.
+%**************************************************************************
+%
+% Input parameter:
+% num_points      - Number of gaussian points to be used. It is assumed that
+%                   in all the directions same number of points will be 
+%                   present.
+%
+% Output:
+% gaussian_points - Location of the gaussian points for a given number of
+%                   gaussian points. This gives a matrix of size m x 3
+%                   where m is according to the number of gaussian points
+%                   integral.
+% weights         - Weights at all those gaussian points. By adding up the 
+%                   function values multiplied with the wieghts at all the 
+%                   gaussian points will give the definite integral value.
+%
 
     switch num_points
         case 1
