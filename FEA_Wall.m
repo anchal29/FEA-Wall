@@ -46,10 +46,7 @@ else
     mod_of_elas = 2 * 10^5;
     pois_ratio = .3;
     bar_dia = 12; % 12mm diameter bars
-    div_x = 1;
-    div_y = 15;
-    div_z = 15;
-    condition = 'all_fixed';
+    condition = 'one_fixed';
     vertical_spacing = 250; % 250 mm soacing of verticle reinforcement.
     horz_spacing = 300; % 300 mm soacing of horizontal reinforcement.
     vertical_dia = 6; % 6mm bars used for verticle reinforcement.
@@ -116,28 +113,35 @@ toc
 
 %Fixed from all the sides
 % displacement = sym('displacement', [total_no_nodes*3 1]);
-displacement = [1:total_no_nodes*3].';
+displacement_index = (1:total_no_nodes*3).';
 load = zeros(total_no_nodes*3, 1);
-load(1:3:end) = 1000;
-
-[displacement_, global_stiff_, load_] = boundary_conditions(displacement, condition, global_stiff, mesh_meta_data, load);
-
+load(1:3:end) = 100000;
+tic
+[displacement_index, global_stiff_, load_] = boundary_conditions(displacement_index, condition, global_stiff, mesh_meta_data, load);
+toc
 % Not good to consider inverse so change it later with alternative sparse
 % factorization implementaion.
-displacement = global_stiff_\load_;
+tic
+reduced_displacement = global_stiff_\load_;
+toc
+%% Displaying results
+tic
+nodal_displ = zeros(total_no_nodes*3, 1);
+nodal_displ(displacement_index) = reduced_displacement;
+nodal_delta_x = nodal_displ(1:3:length(nodal_displ));
+nodal_delta_y = nodal_displ(2:3:length(nodal_displ));
+nodal_delta_z = nodal_displ(3:3:length(nodal_displ));
+new_nodal_coord = [nodal_delta_x nodal_delta_y nodal_delta_z] + nodal_coordinate;
+draw3DMesh(new_nodal_coord, faces);
 %%
-displacemen = displacement;
-a = size(displacemen);
 counter_new = 1;
 counter_2 = 1;
-displ_mesh = zeros(mesh_meta_data(3)+1, mesh_meta_data(2)+1);
-
-% displ_mesh(2:div_y, 2:div_z) = displacemen(1:(div_y+1)*(div_z+1));
+displ_mesh = zeros(div_z+1, div_y+1);
 
 for i = 1:mesh_meta_data(3)+ 1
     for j = 1:mesh_meta_data(2)+1
-        if(displacement_(counter_new) == counter_2)
-            displ_mesh(i, j) = displacemen(counter_new);
+        if(displacement_index(counter_new) == counter_2)
+            displ_mesh(i, j) = reduced_displacement(counter_new);
             counter_2 = counter_2 + 3;
             counter_new = counter_new + 3;
         else
@@ -146,10 +150,13 @@ for i = 1:mesh_meta_data(3)+ 1
         end
     end
 end
+distinct_z = unique(nodal_coordinate(:, 3), 'rows');
+distinct_y = unique(nodal_coordinate(:, 2), 'rows');
 
 figure;
-contourf(1:mesh_meta_data(2)+1, 1:mesh_meta_data(3)+1, displ_mesh);
+contourf(distinct_y, distinct_z, displ_mesh);
 colorbar;
 figure;
-surf(1:mesh_meta_data(2)+1, 1:mesh_meta_data(3)+1, displ_mesh);
+surf(distinct_y, distinct_z, displ_mesh);
 colorbar;
+toc
