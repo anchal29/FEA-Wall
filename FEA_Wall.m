@@ -102,9 +102,8 @@ tic
 % Calculating the stiffness matrix once for all the different types of
 % element.
 for i = 1:length(distinct_elements)
-    [ele_stiff] = octa_element_stiff(element_mod_of_elas(distinct_elements(i)), nodal_coordinate(nodal_connect(distinct_elements(i),:).', :));
-    ele_stiff = ele_stiff(:).';
-    stiff(:, :, i) = ele_stiff;
+    [ele_stiff, shape_function_matrix] = octa_element_stiff(element_mod_of_elas(distinct_elements(i)), nodal_coordinate(nodal_connect(distinct_elements(i),:).', :));
+    stiff(:, :, i) = ele_stiff(:).';
 end
 toc
 
@@ -118,7 +117,7 @@ toc
 %Fixed from all the sides
 % displacement = sym('displacement', [total_no_nodes*3 1]);
 displacement = [1:total_no_nodes*3].';
-load = zeros(total_no_nodes*3, 1)*1000;
+load = zeros(total_no_nodes*3, 1);
 load(1:3:end) = 1000;
 
 [displacement_, global_stiff_, load_] = boundary_conditions(displacement, condition, global_stiff, mesh_meta_data, load);

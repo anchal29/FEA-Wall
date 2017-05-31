@@ -15,7 +15,7 @@ function [displacement, global_stiff, load] =  boundary_conditions(displacement,
 % displacement   - @todo 
 % global_stiff   - @todo 
 % load           - @todo
-
+disp('Applying boundary conditions');
     switch condition
         case 'all_fixed'
             for i = mesh_meta_data(1)+1:-1:1
@@ -31,7 +31,6 @@ function [displacement, global_stiff, load] =  boundary_conditions(displacement,
                 end
                 displacement = [displacement(1:(i-1)*temp2); displacement((i-1)*temp2 + (mesh_meta_data(2) +1)*3 + 1: end)];
             end
-            disp('HOla');
             % For Global Stiffness Matrix
             for i = mesh_meta_data(1)+1:-1:1
                 temp = (i*mesh_meta_data(3)+i-1)*(mesh_meta_data(2)+1)*3;
@@ -89,7 +88,6 @@ function [displacement, global_stiff, load] =  boundary_conditions(displacement,
                 end
 %                 displacement = [displacement(1:(i-1)*temp2); displacement((i-1)*temp2 + (mesh_meta_data(2) +1)*3 + 1: end)];
             end
-            disp('HOla');
             % For Global Stiffness Matrix
             for i = mesh_meta_data(1)+1:-1:1
                 temp = (i*mesh_meta_data(3)+i-1)*(mesh_meta_data(2)+1)*3;
@@ -147,7 +145,6 @@ function [displacement, global_stiff, load] =  boundary_conditions(displacement,
                 end
 %                 displacement = [displacement(1:(i-1)*temp2); displacement((i-1)*temp2 + (mesh_meta_data(2) +1)*3 + 1: end)];
             end
-            disp('HOla');
             % For Global Stiffness Matrix
             for i = mesh_meta_data(1)+1:-1:1
                 temp = (i*mesh_meta_data(3)+i-1)*(mesh_meta_data(2)+1)*3;
@@ -205,7 +202,6 @@ function [displacement, global_stiff, load] =  boundary_conditions(displacement,
                 end
 %                 displacement = [displacement(1:(i-1)*temp2); displacement((i-1)*temp2 + (mesh_meta_data(2) +1)*3 + 1: end)];
             end
-            disp('HOla');
             % For Global Stiffness Matrix
             for i = mesh_meta_data(1)+1:-1:1
                 temp = (i*mesh_meta_data(3)+i-1)*(mesh_meta_data(2)+1)*3;

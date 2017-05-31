@@ -37,11 +37,14 @@ y_coord = helper(mesh_size(2), vert_bars_poistion, reinforcment_info(1,1), dimen
 z_coord = helper(mesh_size(3), horz_bars_poistion, reinforcment_info(2,1), dimension(3));
 x_coord = get_x(dimension(1), reinforcment_info, mesh_size(1));
 nodal_coordinate = combvec(y_coord, z_coord, x_coord);
+
+% Reorder the nodal coordinate matrix such that index 1 is x values, 2 for 
+% y and 3 for z.
 correct_nodal_coordinate = nodal_coordinate.';
 correct_nodal_coordinate = correct_nodal_coordinate(:, [3 1 2]);
 nodal_coordinate = correct_nodal_coordinate;
+
 no_elements = (length(x_coord) - 1) * (length(y_coord) - 1) * (length(z_coord) - 1);
-total_no_nodes = length(nodal_coordinate);
 
 mesh_meta_data = [length(x_coord) - 1, length(y_coord) - 1, length(z_coord) - 1];
 for ii = 1:no_elements

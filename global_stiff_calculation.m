@@ -34,6 +34,7 @@ for ii = 1:no_elements
     dy = nodal_coordinate(nodal_connect(ii, 3), 2) - nodal_coordinate(nodal_connect(ii, 2), 2);
     dz = nodal_coordinate(nodal_connect(ii, 5), 3) - nodal_coordinate(nodal_connect(ii, 1), 3);
     [~,Locb] = ismember([dx, dy, dz, element_mod_of_elas(ii)], distinct_coordinates, 'rows');
+    
     final_mapping = zeros(1, 24);
 
     for jj = 1:8
