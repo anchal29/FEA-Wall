@@ -7,7 +7,7 @@
 clear variables;
 clear global;
 clc;
-
+    
 %% Input
 choice = 0;
 while(~(choice == 1 || choice == 2))
@@ -74,14 +74,20 @@ vert_side_cover = 75;% Veticle bars side cover.
 horz_side_cover = 75;
 reinforcment_info = [vertical_dia, vertical_spacing, vert_side_cover;
                      horz_dia    , horz_spacing    , horz_side_cover];
+
 %% Create mesh
+disp('Creating Mesh...');
 [nodal_connect, nodal_coordinate, faces, mesh_meta_data] = createMesh(dimension, divisions, reinforcment_info);
+disp('Done!');
 
 %% Draw the mesh
+disp('Plotting Mesh...');
 draw3DMesh(nodal_coordinate, faces);
+disp('Done!');
 
 %% Stiffness Matrix Calculation
-
+disp('Finding out local stiffness matrix for all the distinct elements...');
+tic
 % Total number of elements will be equal to the the size of the
 % nodal_coordinate matrix.
 no_elements = length(nodal_connect);
@@ -95,36 +101,47 @@ teemp11 = zeros(24, 24);
 
 stiff = zeros(1, 24*24, length(distinct_elements));
 
-tic
 % Calculating the stiffness matrix once for all the different types of
 % element.
 for i = 1:length(distinct_elements)
-    [ele_stiff, shape_function_matrix] = octa_element_stiff(element_mod_of_elas(distinct_elements(i)), nodal_coordinate(nodal_connect(distinct_elements(i),:).', :));
+    temp = nodal_coordinate(nodal_connect(distinct_elements(i),:).', :);
+%     temp = {temp(:).'};
+    ele_stiff = getElementStiffness(temp, element_mod_of_elas(distinct_elements(i)));
+%     [ele_stiff, shape_function_matrix] = octa_element_stiff(element_mod_of_elas(distinct_elements(i)), nodal_coordinate(nodal_connect(distinct_elements(i),:).', :));
     stiff(:, :, i) = ele_stiff(:).';
 end
 toc
-
-%%
+disp('Done!');
 % Calculating the global stiffness matrix
+disp('Assembling global stiffness matrix...')
 tic
 [global_stiff] = global_stiff_calculation(nodal_coordinate, nodal_connect, element_mod_of_elas, distinct_coordinates, distinct_elements, stiff);
 toc
-%% Boundary conditions
+disp('Done!');
 
+%% Boundary conditions
+disp('Applying boundary conditions...');
+tic
 %Fixed from all the sides
 % displacement = sym('displacement', [total_no_nodes*3 1]);
 displacement_index = (1:total_no_nodes*3).';
 load = zeros(total_no_nodes*3, 1);
-load(1:3:end) = 100000;
-tic
+load(1:3:end) = 10000;
 [displacement_index, global_stiff_, load_] = boundary_conditions(displacement_index, condition, global_stiff, mesh_meta_data, load);
-toc
+toc;
+disp('Done!');
+
+%% Solving linear equation
 % Not good to consider inverse so change it later with alternative sparse
 % factorization implementaion.
+disp('Solving for nodal displacement...');
 tic
 reduced_displacement = global_stiff_\load_;
 toc
+disp('Done!');
+
 %% Displaying results
+disp('Showing results...');
 tic
 nodal_displ = zeros(total_no_nodes*3, 1);
 nodal_displ(displacement_index) = reduced_displacement;
@@ -133,7 +150,6 @@ nodal_delta_y = nodal_displ(2:3:length(nodal_displ));
 nodal_delta_z = nodal_displ(3:3:length(nodal_displ));
 new_nodal_coord = [nodal_delta_x nodal_delta_y nodal_delta_z] + nodal_coordinate;
 draw3DMesh(new_nodal_coord, faces);
-%%
 counter_new = 1;
 counter_2 = 1;
 displ_mesh = zeros(div_z+1, div_y+1);

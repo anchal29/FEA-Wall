@@ -1,2 +1,4 @@
 # Files to ignore
 *.m~
+getStrainB.m
+getElementStiffness.m

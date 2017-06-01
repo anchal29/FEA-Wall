@@ -15,7 +15,6 @@ function [displacement, global_stiff, load] =  boundary_conditions(displacement,
 % displacement   - @todo 
 % global_stiff   - @todo 
 % load           - @todo
-disp('Applying boundary conditions');
     switch condition
         case 'all_fixed'
             for i = mesh_meta_data(1)+1:-1:1
