@@ -85,17 +85,23 @@ disp('Plotting Mesh...');
 draw3DMesh(nodal_coordinate, faces);
 disp('Done!');
 
-%% Stiffness Matrix Calculation
-disp('Finding out local stiffness matrix for all the distinct elements...');
-tic
 % Total number of elements will be equal to the the size of the
 % nodal_coordinate matrix.
 no_elements = length(nodal_connect);
+
+total_no_nodes = length(nodal_coordinate);
+
+element_mapping = ElementMapping(nodal_connect, no_elements);
+% Above calculated informations are not needed to be calculated again.
+
+%% Stiffness Matrix Calculation
+disp('Finding out local stiffness matrix for all the distinct elements...');
+tic
+
 element_mod_of_elas = repmat(mod_of_elas, 1, no_elements);
 
 [distinct_elements, distinct_coordinates] = getDistinctElements(nodal_coordinate, nodal_connect, element_mod_of_elas);
 
-total_no_nodes = length(nodal_coordinate);
 % global_stiff = sparse(total_no_nodes*3, total_no_nodes*3);
 teemp11 = zeros(24, 24);
 
@@ -103,12 +109,12 @@ stiff = zeros(1, 24*24, length(distinct_elements));
 
 % Calculating the stiffness matrix once for all the different types of
 % element.
-for i = 1:length(distinct_elements)
-    temp = nodal_coordinate(nodal_connect(distinct_elements(i),:).', :);
+for ii = 1:length(distinct_elements)
+    temp = nodal_coordinate(nodal_connect(distinct_elements(ii),:).', :);
 %     temp = {temp(:).'};
-    ele_stiff = getElementStiffness(temp, element_mod_of_elas(distinct_elements(i)));
+    ele_stiff = getElementStiffness(temp, element_mod_of_elas(distinct_elements(ii)));
 %     [ele_stiff, shape_function_matrix] = octa_element_stiff(element_mod_of_elas(distinct_elements(i)), nodal_coordinate(nodal_connect(distinct_elements(i),:).', :));
-    stiff(:, :, i) = ele_stiff(:).';
+    stiff(:, :, ii) = ele_stiff(:).';
 end
 toc
 disp('Done!');
@@ -139,12 +145,21 @@ tic
 reduced_displacement = global_stiff_\load_;
 toc
 disp('Done!');
+nodal_displ = zeros(total_no_nodes*3, 1);
+nodal_displ(displacement_index) = reduced_displacement;
 
+%% Finding out stress and strain values for each elements
+for ii = 1:no_elements
+    ele_nodal_disp = nodal_displ(element_mapping(ii));
+    [ele_stress, ele_strain] = ElementStressStrain(nodal_coordinate, nodal_connect, element_mod_of_elas(ii), ele_nodal_disp, ii);
+    % Check if element is going into non lienar state or not. If it is then
+    % update the element modulus of elasticity or the stress-strain slope.
+    % Also do calcualtions here so that we can find out the force value
+    % using stress. This will be used to find out the residual force.
+end
 %% Displaying results
 disp('Showing results...');
 tic
-nodal_displ = zeros(total_no_nodes*3, 1);
-nodal_displ(displacement_index) = reduced_displacement;
 nodal_delta_x = nodal_displ(1:3:length(nodal_displ));
 nodal_delta_y = nodal_displ(2:3:length(nodal_displ));
 nodal_delta_z = nodal_displ(3:3:length(nodal_displ));
@@ -154,14 +169,14 @@ counter_new = 1;
 counter_2 = 1;
 displ_mesh = zeros(div_z+1, div_y+1);
 
-for i = 1:mesh_meta_data(3)+ 1
-    for j = 1:mesh_meta_data(2)+1
+for ii = 1:mesh_meta_data(3)+ 1
+    for jj = 1:mesh_meta_data(2)+1
         if(displacement_index(counter_new) == counter_2)
-            displ_mesh(i, j) = reduced_displacement(counter_new);
+            displ_mesh(ii, jj) = reduced_displacement(counter_new);
             counter_2 = counter_2 + 3;
             counter_new = counter_new + 3;
         else
-            displ_mesh(i, j) = 0;
+            displ_mesh(ii, jj) = 0;
             counter_2 = counter_2 + 3;
         end
     end
