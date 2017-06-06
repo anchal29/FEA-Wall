@@ -61,7 +61,6 @@ end
 
 % Dimensions matrix is in mm so to avoid float values.
 dimension = [thickness, width, height];
-mod_of_elas  = mod_of_elas * 10^6;
 
 %% Naive assumptions
 % It seems that 15 divisions across y and z direction are enough. So
@@ -84,7 +83,7 @@ disp('Done!');
 disp('Plotting Mesh...');
 draw3DMesh(nodal_coordinate, faces);
 disp('Done!');
-
+%%
 % Total number of elements will be equal to the the size of the
 % nodal_coordinate matrix.
 no_elements = length(nodal_connect);
@@ -142,6 +141,7 @@ disp('Done!');
 % factorization implementaion.
 disp('Solving for nodal displacement...');
 tic
+load_ = sparse(load_);
 reduced_displacement = global_stiff_\load_;
 toc
 disp('Done!');
@@ -149,14 +149,21 @@ nodal_displ = zeros(total_no_nodes*3, 1);
 nodal_displ(displacement_index) = reduced_displacement;
 
 %% Finding out stress and strain values for each elements
+disp('Calculating element stresses and strains...')
+tic
+syms zeta eta nu;
 for ii = 1:no_elements
-    ele_nodal_disp = nodal_displ(element_mapping(ii));
-    [ele_stress, ele_strain] = ElementStressStrain(nodal_coordinate, nodal_connect, element_mod_of_elas(ii), ele_nodal_disp, ii);
+    ele_nodal_disp = nodal_displ(element_mapping(ii, :));
+%     getStrainB(nodal_coordinate(nodal_connect(ii, :).', :), element_mod_of_elas(ii), zeta, eta, nu);
+    [max_ele_strain, ele_strain] = ElementStressStrain(nodal_coordinate(nodal_connect(ii, :).', :), element_mod_of_elas(ii), ele_nodal_disp);
     % Check if element is going into non lienar state or not. If it is then
     % update the element modulus of elasticity or the stress-strain slope.
     % Also do calcualtions here so that we can find out the force value
     % using stress. This will be used to find out the residual force.
+    break;
 end
+toc
+disp('Done!');
 %% Displaying results
 disp('Showing results...');
 tic

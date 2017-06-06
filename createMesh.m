@@ -11,13 +11,19 @@ function [nodal_connect, nodal_coordinate, faces, mesh_meta_data] = createMesh(d
 %                      horz_dia    , horz_spacing    , horz_side_cover];
 %
 % Output:
-% nodal_connect     - @todo
-% nodal_coordinate  - @todo
-% faces             - @todo
-% mesh_meta_data    - @todo
+% nodal_connect     - Nodal connectivity matrix.
+% nodal_coordinate  - Nodal coordinate matrix.
+% faces             - Contains nodes to be connected to get a cube for each
+%                     of the element using patch.
+% mesh_meta_data    - Number of divisions in x, y and z direction
+%                     respectively in the created mesh.
 
 % Total number of bars in y and z direction
 num_bars = floor((dimension(2:3) - 2*reinforcment_info(:,3).')./reinforcment_info(:,2).');
+
+% Update the side covers so as we have equal spacing both the sides.
+temp = (dimension(2:3) -  num_bars.*reinforcment_info(:,2).')/2;
+reinforcment_info(:, 3) = temp;
 
 % Verticle bars will be distributed in y direction while the horizontal
 % bars are in z direction repectively.
@@ -92,13 +98,15 @@ function [coordinates] = helper(mesh_size, bars_pos, bar_dia, dimension)
         if(index > length(bars_pos))
             coordinates(end + 1) = coord_val;
         elseif(coord_val >= bars_pos(index) - fine_meshing*bar_dia)
-            temp = -fine_meshing:fine_meshing;
+            temp = -fine_meshing:fine_meshing+1;
             % Considering fine_meshing number of elements around the bars.
             % So as to get finer mesh around it.
             coordinates = [coordinates, bars_pos(index) + bar_dia*temp];
             index = index + 1;
         else
-            coordinates(end + 1) = coord_val;
+            distance = (bars_pos(index) - fine_meshing*bar_dia - coordinates(end));
+            n_div = floor(distance/mesh_size);
+            coordinates = [coordinates coordinates(end)+((1:n_div)*(distance/(n_div+1)))];
         end
         flag = coordinates(end) >= dimension;
     end
@@ -107,12 +115,11 @@ end
 function[x_coordinates] = get_x(dimension, reinforcment_info, mesh_size)
 
 clear_cover = 40;
-fine_meshing = 3;
 % First and last case denotes that he horizontal steel comes before 
 % verticle while moving along the thickness of wall and the middle one 
 % shows the otherwise.
 if(dimension(1) <= 170)
-    bar_dia = [reinforcment_info(2,1), reinforcment_info(2,1)];
+    bar_dia = [reinforcment_info(2,1), reinforcment_info(1,1)];
     bars_pos = [floor(dimension/2) - reinforcment_info(2,1), floor(dimension/2)];
 elseif(dimension(1) > 220)
     bar_dia = [reinforcment_info(1,1), reinforcment_info(2,1), reinforcment_info(2,1), reinforcment_info(1,1)];
