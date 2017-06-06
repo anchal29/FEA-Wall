@@ -1,4 +1,4 @@
-function [nodal_connect, nodal_coordinate, faces, mesh_meta_data] = createMesh(dimension, divisions, reinforcment_info)
+function [nodal_connect, nodal_coordinate, faces, mesh_meta_data, bar_position] = createMesh(dimension, divisions, reinforcment_info)
 %**************************************************************************
 % Creates mesh for the provided wall.
 % Returns the nodal connectivity and nodal coordinate matrices.
@@ -17,6 +17,7 @@ function [nodal_connect, nodal_coordinate, faces, mesh_meta_data] = createMesh(d
 %                     of the element using patch.
 % mesh_meta_data    - Number of divisions in x, y and z direction
 %                     respectively in the created mesh.
+% bar_position      - Reinforcement bars position in each directions.
 
 % Total number of bars in y and z direction
 num_bars = floor((dimension(2:3) - 2*reinforcment_info(:,3).')./reinforcment_info(:,2).');
@@ -41,7 +42,7 @@ mesh_size = 50 * floor((dimension./divisions)/50);
 % Now we need to find out all the coordinate values for each elements.
 y_coord = helper(mesh_size(2), vert_bars_poistion, reinforcment_info(1,1), dimension(2));
 z_coord = helper(mesh_size(3), horz_bars_poistion, reinforcment_info(2,1), dimension(3));
-x_coord = get_x(dimension(1), reinforcment_info, mesh_size(1));
+[x_coord, x_bars_pos] = get_x(dimension(1), reinforcment_info, mesh_size(1));
 nodal_coordinate = combvec(y_coord, z_coord, x_coord);
 
 % Reorder the nodal coordinate matrix such that index 1 is x values, 2 for 
@@ -50,6 +51,10 @@ correct_nodal_coordinate = nodal_coordinate.';
 correct_nodal_coordinate = correct_nodal_coordinate(:, [3 1 2]);
 nodal_coordinate = correct_nodal_coordinate;
 
+% Store bar positions in a cell to use later while marking each elements
+% for element type
+bar_position = {x_bars_pos, vert_bars_poistion, horz_bars_poistion};
+    
 no_elements = (length(x_coord) - 1) * (length(y_coord) - 1) * (length(z_coord) - 1);
 
 mesh_meta_data = [length(x_coord) - 1, length(y_coord) - 1, length(z_coord) - 1];
@@ -112,10 +117,10 @@ function [coordinates] = helper(mesh_size, bars_pos, bar_dia, dimension)
     end
 end
 
-function[x_coordinates] = get_x(dimension, reinforcment_info, mesh_size)
+function[x_coordinates, bars_pos] = get_x(dimension, reinforcment_info, mesh_size)
 
 clear_cover = 40;
-% First and last case denotes that he horizontal steel comes before 
+% First and last case denotes that the horizontal steel comes before 
 % verticle while moving along the thickness of wall and the middle one 
 % shows the otherwise.
 if(dimension(1) <= 170)
@@ -140,7 +145,7 @@ function [coordinates] = helper2(mesh_size, bars_pos, bar_dia, dimension)
     fine_meshing = 1;
     flag = 0;
     choice = 1;
-    temp_mat = [-fine_meshing:0;0:fine_meshing];
+    temp_mat = {[-fine_meshing:0], [0:1+fine_meshing]};
     while(flag == 0)
         coord_val = min(coordinates(end) + mesh_size, dimension);
 %         disp(index)
@@ -148,7 +153,7 @@ function [coordinates] = helper2(mesh_size, bars_pos, bar_dia, dimension)
         if(index > length(bars_pos))
             coordinates(end + 1) = coord_val;
         elseif(coord_val >= bars_pos(index) - fine_meshing*bar_dia(index))
-            temp = temp_mat(choice, :);
+            temp = temp_mat{choice};
             if(choice == 1)
                 choice = 2;
             else

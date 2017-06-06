@@ -43,7 +43,7 @@ else
     height = 3000;
     width = 5000;
     thickness = 230;
-    mod_of_elas = 2 * 10^5;
+    steel_E = 2 * 10^5;
     pois_ratio = .3;
     bar_dia = 12; % 12mm diameter bars
     condition = 'one_fixed';
@@ -51,6 +51,7 @@ else
     horz_spacing = 300; % 300 mm soacing of horizontal reinforcement.
     vertical_dia = 6; % 6mm bars used for verticle reinforcement.
     horz_dia = 6;
+    conc_grade = 25;
 end
 
 
@@ -76,12 +77,17 @@ reinforcment_info = [vertical_dia, vertical_spacing, vert_side_cover;
 
 %% Create mesh
 disp('Creating Mesh...');
-[nodal_connect, nodal_coordinate, faces, mesh_meta_data] = createMesh(dimension, divisions, reinforcment_info);
+[nodal_connect, nodal_coordinate, faces, mesh_meta_data, bar_position] = createMesh(dimension, divisions, reinforcment_info);
 disp('Done!');
 
 %% Draw the mesh
 disp('Plotting Mesh...');
 draw3DMesh(nodal_coordinate, faces);
+disp('Done!');
+
+%% Get element type
+disp('Getting each element type...');
+element_type_steel = getElementType(nodal_coordinate, nodal_connect, bar_position, thickness);
 disp('Done!');
 %%
 % Total number of elements will be equal to the the size of the
@@ -91,14 +97,15 @@ no_elements = length(nodal_connect);
 total_no_nodes = length(nodal_coordinate);
 
 element_mapping = ElementMapping(nodal_connect, no_elements);
-% Above calculated informations are not needed to be calculated again.
+conc_E = 5000 * sqrt(conc_grade);
+element_mod_of_elas = steel_E.*element_type_steel(1:no_elements) + conc_E.*(~element_type_steel(1:no_elements));
 
+%*********************************************************************
+% Above calculated informations are not needed to be calculated again.
+%*********************************************************************
 %% Stiffness Matrix Calculation
 disp('Finding out local stiffness matrix for all the distinct elements...');
 tic
-
-element_mod_of_elas = repmat(mod_of_elas, 1, no_elements);
-
 [distinct_elements, distinct_coordinates] = getDistinctElements(nodal_coordinate, nodal_connect, element_mod_of_elas);
 
 % global_stiff = sparse(total_no_nodes*3, total_no_nodes*3);
