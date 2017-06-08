@@ -42,11 +42,11 @@ if choice == 1
 else
     height = 3000;
     width = 5000;
-    thickness = 230;
+    thickness = 170;
     steel_E = 2 * 10^5;
     pois_ratio = .3;
     bar_dia = 12; % 12mm diameter bars
-    condition = 'one_fixed';
+    condition = 'all_fixed';
     vertical_spacing = 250; % 250 mm soacing of verticle reinforcement.
     horz_spacing = 300; % 300 mm soacing of horizontal reinforcement.
     vertical_dia = 6; % 6mm bars used for verticle reinforcement.
@@ -124,12 +124,21 @@ for ii = 1:length(distinct_elements)
 end
 toc
 disp('Done!');
-% Calculating the global stiffness matrix
+
+%% Calculating the global stiffness matrix
 disp('Assembling global stiffness matrix...')
 tic
 [global_stiff] = global_stiff_calculation(nodal_coordinate, nodal_connect, element_mod_of_elas, distinct_coordinates, distinct_elements, stiff);
 toc
 disp('Done!');
+% Make the global stiffness matrix symmetric and handle any bug in
+% calculation of global stiffness matrix calculation.
+if(max(max(abs(global_stiff - global_stiff))) < 1e-5)
+    global_stiff = (global_stiff + global_stiff.')/2;
+else
+    disp('Variations in global stiffness matrix crossed acceptable error. Aborting...');
+    return;
+end
 
 %% Boundary conditions
 disp('Applying boundary conditions...');
@@ -138,7 +147,7 @@ tic
 % displacement = sym('displacement', [total_no_nodes*3 1]);
 displacement_index = (1:total_no_nodes*3).';
 load = zeros(total_no_nodes*3, 1);
-load(1:3:end) = 10000;
+load(1:3:end) = 1000;
 [displacement_index, global_stiff_, load_] = boundary_conditions(displacement_index, condition, global_stiff, mesh_meta_data, load);
 toc;
 disp('Done!');
@@ -148,7 +157,7 @@ disp('Done!');
 % factorization implementaion.
 disp('Solving for nodal displacement...');
 tic
-load_ = sparse(load_);
+% load_ = sparse(load_);
 reduced_displacement = global_stiff_\load_;
 toc
 disp('Done!');
@@ -167,7 +176,6 @@ for ii = 1:no_elements
     % update the element modulus of elasticity or the stress-strain slope.
     % Also do calcualtions here so that we can find out the force value
     % using stress. This will be used to find out the residual force.
-    break;
 end
 toc
 disp('Done!');

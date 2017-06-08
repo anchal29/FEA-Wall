@@ -25,7 +25,6 @@ for ii = 1:8
     strain(ii, :) = (temp*nodal_disp).';
 end
 
-disp(strain);
 max_ele_strain = max(max(abs(strain)));
 
 
