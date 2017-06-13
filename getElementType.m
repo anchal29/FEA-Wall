@@ -1,6 +1,6 @@
 function element_type_steel = getElementType(nodal_coordinate, nodal_connect, bar_position, thickness)
 %**************************************************************************
-% Finds element type for each elements. Returns a boolean vector storing
+% Assigns element type to each elements. Returns a boolean vector storing
 % whether the element is steel or not. 0 represents concrete element.
 %**************************************************************************
 %

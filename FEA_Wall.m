@@ -160,25 +160,18 @@ end
 %% Boundary conditions
 disp('Applying boundary conditions...');
 tic
-%Fixed from all the sides
-% displacement = sym('displacement', [total_no_nodes*3 1]);
-displacement_index = (1:total_no_nodes*3).';
-[displacement_index, global_stiff_, load_] = boundary_conditions(displacement_index, condition, global_stiff, mesh_meta_data, load);
+[global_stiff_bc, load_bc] = boundary_conditions(condition, global_stiff, mesh_meta_data, load);
 toc;
 disp('Done!');
 
 %% Solving linear equation
-% Not good to consider inverse so change it later with alternative sparse
-% factorization implementaion.
 disp('Solving for nodal displacement...');
 tic
-% load_ = sparse(load_);
-reduced_displacement = global_stiff_\load_;
+% Dont do inverse of global matrix as the resultant matrix may not be a
+% sparse matrix and we can't store such huge dense matrix.
+nodal_displ = global_stiff_bc\load_bc;
 toc
 disp('Done!');
-nodal_displ = zeros(total_no_nodes*3, 1);
-nodal_displ(displacement_index) = reduced_displacement;
-
 
 %% Finding out stress and strain values for each elements
 disp('Calculating element stresses and strains...');
@@ -197,11 +190,9 @@ for ii = 1:no_elements
     % using stress. This will be used to find out the residual force.
     if(max_ele_strain > conc_yield_strain && element_type_steel(ii) == 0)
         element_mod_of_elas(ii) = conc_Et;
-%         disp('Concrete element elasticity updated');
         count = count + 1;
     elseif(max_ele_strain > steel_yield_strain && element_type_steel(ii) == 1)
         element_mod_of_elas(ii) = conc_Et;
-%         disp('Steel element elasticity updated');
         count = count + 1;
     end
     max_strain(ii) = max_ele_strain;
@@ -209,21 +200,18 @@ for ii = 1:no_elements
 end
 toc
 disp('Done!');
-disp(count);
+fprintf('Number of elements that went into non-linear state in this iteration: %d\n', count);
 
-%%
-element_mod_of_elas = steel_E.*element_type_steel(1:no_elements) + conc_E.*(~element_type_steel(1:no_elements));
-global_stiff = getGlobalStiff(nodal_coordinate, nodal_connect, element_mod_of_elas);
-disp('Applying boundary conditions...');
-tic
-%Fixed from all the sides
-% displacement = sym('displacement', [total_no_nodes*3 1]);
-displacement_index = (1:total_no_nodes*3).';
-[displacement_index, global_stiff_, load_] = boundary_conditions(displacement_index, condition, global_stiff, mesh_meta_data, load);
-toc;
-disp('Done!');
-internal_force = global_stiff_*reduced_displacement;
-
+%% Calculating Residual Force
+% global_stiff = getGlobalStiff(nodal_coordinate, nodal_connect, element_mod_of_elas);
+% disp('Applying boundary conditions...');
+% tic
+% [global_stiff_, load_] = boundary_conditions(condition, global_stiff, mesh_meta_data, load);
+% toc;
+% disp('Done!');
+% internal_force = global_stiff_*nodal_displ;
+% residual_force = load_bc - internal_force;
+% 
 
 %% Displaying results
 disp('Showing results...');
@@ -232,22 +220,14 @@ nodal_delta_x = nodal_displ(1:3:length(nodal_displ));
 nodal_delta_y = nodal_displ(2:3:length(nodal_displ));
 nodal_delta_z = nodal_displ(3:3:length(nodal_displ));
 new_nodal_coord = [nodal_delta_x nodal_delta_y nodal_delta_z] + nodal_coordinate;
-% draw3DMesh(new_nodal_coord, faces);
-counter_new = 1;
-counter_2 = 1;
-temp_counter  = 0;
+draw3DMesh(new_nodal_coord, faces);
+counter_1 = 1;
 displ_mesh = zeros(mesh_meta_data(3)+1, mesh_meta_data(2)+1);
 
 for ii = 1:mesh_meta_data(3)+ 1
     for jj = 1:mesh_meta_data(2)+1
-        if(displacement_index(counter_new) == counter_2)
-            displ_mesh(ii, jj) = reduced_displacement(counter_new);
-            counter_2 = counter_2 + 3;
-            counter_new = counter_new + 3;
-        else
-            displ_mesh(ii, jj) = 0;
-            counter_2 = counter_2 + 3;
-        end
+        displ_mesh(ii, jj) = nodal_displ(counter_1);
+        counter_1 = counter_1 + 3;
     end
 end
 distinct_z = unique(nodal_coordinate(:, 3), 'rows');
@@ -262,6 +242,7 @@ colorbar;
 toc
 
 %%
+temp_counter = 1;
 strain_counter = 1;
 strain_mesh_xz = zeros(mesh_meta_data(3)+1, mesh_meta_data(2)+1);
 

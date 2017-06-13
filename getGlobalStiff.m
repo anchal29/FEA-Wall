@@ -1,6 +1,6 @@
 function global_stiff = getGlobalStiff(nodal_coordinate, nodal_connect, element_mod_of_elas)
 %**************************************************************************
-% Complete subrutine to get global stiffness matrix.
+% Complete subroutine to get global stiffness matrix.
 %**************************************************************************
 
 disp('Finding out local stiffness matrix for all the distinct elements...');
