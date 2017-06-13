@@ -21,7 +21,7 @@ if choice == 1
     
     % For linear analysis take the following youngs modulus. % In Newton 
     % per milli-meter square.
-    mod_of_elas = input('Enter the Young''s modulus :    ');
+    steel_E = input('Enter the Young''s modulus of steel:    ');
     pois_ratio = input('Enter the possion_ratio:    ');
     
     bar_dia = input('Enter the main steel bar diameter:    ');
@@ -35,10 +35,12 @@ if choice == 1
     vertical_dia = input('Enter the diameter of verticle reinforcement bars:    ');
     horz_dia = input('Enter the diameter of horzontal reinforcement bars:    ');
     condition = 'all_fixed';
+
+    conc_grade = input('Enter the grade of concrete:    ');
+    steel_grade = input('Enter the grade of steel:    ');
     
     %%% Loads
-    % Loads will be considered later.
-    %%%% @TODO
+    % One point load acting at centre.
 else
     height = 3000;
     width = 5000;
@@ -52,9 +54,16 @@ else
     vertical_dia = 6; % 6mm bars used for verticle reinforcement.
     horz_dia = 6;
     conc_grade = 25;
+    steel_grade = 415;
+    % Point load acting at centre of wall.
 end
 
+conc_yield_strain = 0.002;
+conc_E = 5000 * sqrt(conc_grade);
 
+steel_Et = steel_E / 5;
+conc_Et = conc_E / 10;
+steel_yield_strain = steel_grade / steel_E;
 % % Converting all the input in SI unit 
 % thickness = thickness * 10^(-3);
 % mod_of_elas= mod_of_elas * 10^6;
@@ -97,8 +106,19 @@ no_elements = length(nodal_connect);
 total_no_nodes = length(nodal_coordinate);
 
 element_mapping = ElementMapping(nodal_connect, no_elements);
-conc_E = 5000 * sqrt(conc_grade);
 element_mod_of_elas = steel_E.*element_type_steel(1:no_elements) + conc_E.*(~element_type_steel(1:no_elements));
+
+load = zeros(total_no_nodes*3, 1);
+% Point load on centre
+load(floor((mesh_meta_data(2)+1)*(mesh_meta_data(3)+1)/2)) = 100000;
+% load(1:3:end) = 10000;
+% load_step = 50000;
+% for load_step = 20000:20000:200000
+% residual_force = 0
+%     while(any(residual_force(:) = 0))
+%         Do the usual
+%     end
+% end
 
 %*********************************************************************
 % Above calculated informations are not needed to be calculated again.
@@ -107,9 +127,6 @@ element_mod_of_elas = steel_E.*element_type_steel(1:no_elements) + conc_E.*(~ele
 disp('Finding out local stiffness matrix for all the distinct elements...');
 tic
 [distinct_elements, distinct_coordinates] = getDistinctElements(nodal_coordinate, nodal_connect, element_mod_of_elas);
-
-% global_stiff = sparse(total_no_nodes*3, total_no_nodes*3);
-teemp11 = zeros(24, 24);
 
 stiff = zeros(1, 24*24, length(distinct_elements));
 
@@ -146,8 +163,6 @@ tic
 %Fixed from all the sides
 % displacement = sym('displacement', [total_no_nodes*3 1]);
 displacement_index = (1:total_no_nodes*3).';
-load = zeros(total_no_nodes*3, 1);
-load(1:3:end) = 1000;
 [displacement_index, global_stiff_, load_] = boundary_conditions(displacement_index, condition, global_stiff, mesh_meta_data, load);
 toc;
 disp('Done!');
@@ -164,10 +179,14 @@ disp('Done!');
 nodal_displ = zeros(total_no_nodes*3, 1);
 nodal_displ(displacement_index) = reduced_displacement;
 
+
 %% Finding out stress and strain values for each elements
-disp('Calculating element stresses and strains...')
+disp('Calculating element stresses and strains...');
 tic
 syms zeta eta nu;
+max_strain = zeros(1, no_elements);
+each_ele_strain = zeros(8, 6, no_elements);
+count = 0;
 for ii = 1:no_elements
     ele_nodal_disp = nodal_displ(element_mapping(ii, :));
 %     getStrainB(nodal_coordinate(nodal_connect(ii, :).', :), element_mod_of_elas(ii), zeta, eta, nu);
@@ -176,9 +195,36 @@ for ii = 1:no_elements
     % update the element modulus of elasticity or the stress-strain slope.
     % Also do calcualtions here so that we can find out the force value
     % using stress. This will be used to find out the residual force.
+    if(max_ele_strain > conc_yield_strain && element_type_steel(ii) == 0)
+        element_mod_of_elas(ii) = conc_Et;
+%         disp('Concrete element elasticity updated');
+        count = count + 1;
+    elseif(max_ele_strain > steel_yield_strain && element_type_steel(ii) == 1)
+        element_mod_of_elas(ii) = conc_Et;
+%         disp('Steel element elasticity updated');
+        count = count + 1;
+    end
+    max_strain(ii) = max_ele_strain;
+    each_ele_strain(:, :, ii) = ele_strain;
 end
 toc
 disp('Done!');
+disp(count);
+
+%%
+element_mod_of_elas = steel_E.*element_type_steel(1:no_elements) + conc_E.*(~element_type_steel(1:no_elements));
+global_stiff = getGlobalStiff(nodal_coordinate, nodal_connect, element_mod_of_elas);
+disp('Applying boundary conditions...');
+tic
+%Fixed from all the sides
+% displacement = sym('displacement', [total_no_nodes*3 1]);
+displacement_index = (1:total_no_nodes*3).';
+[displacement_index, global_stiff_, load_] = boundary_conditions(displacement_index, condition, global_stiff, mesh_meta_data, load);
+toc;
+disp('Done!');
+internal_force = global_stiff_*reduced_displacement;
+
+
 %% Displaying results
 disp('Showing results...');
 tic
@@ -186,10 +232,11 @@ nodal_delta_x = nodal_displ(1:3:length(nodal_displ));
 nodal_delta_y = nodal_displ(2:3:length(nodal_displ));
 nodal_delta_z = nodal_displ(3:3:length(nodal_displ));
 new_nodal_coord = [nodal_delta_x nodal_delta_y nodal_delta_z] + nodal_coordinate;
-draw3DMesh(new_nodal_coord, faces);
+% draw3DMesh(new_nodal_coord, faces);
 counter_new = 1;
 counter_2 = 1;
-displ_mesh = zeros(div_z+1, div_y+1);
+temp_counter  = 0;
+displ_mesh = zeros(mesh_meta_data(3)+1, mesh_meta_data(2)+1);
 
 for ii = 1:mesh_meta_data(3)+ 1
     for jj = 1:mesh_meta_data(2)+1
@@ -213,3 +260,33 @@ figure;
 surf(distinct_y, distinct_z, displ_mesh);
 colorbar;
 toc
+
+%%
+strain_counter = 1;
+strain_mesh_xz = zeros(mesh_meta_data(3)+1, mesh_meta_data(2)+1);
+
+for ii = 1:mesh_meta_data(3)+ 1
+    for jj = 1:mesh_meta_data(2)+1
+        if(ii == mesh_meta_data(3) && temp_counter == 0)
+           temp_counter = strain_counter;
+        end
+        if(temp_counter ~= 0 && ii == mesh_meta_data(3)+1)
+            strain_counter = temp_counter;
+            if(jj == mesh_meta_data(2) + 1)
+                strain_mesh_xz(ii, jj) = each_ele_strain(8, 1, strain_counter-1);
+            else
+                strain_mesh_xz(ii, jj) = each_ele_strain(5, 1, strain_counter);
+                strain_counter = strain_counter + 1;
+            end
+            temp_counter = strain_counter;
+        elseif(jj == mesh_meta_data(2) + 1)
+            strain_mesh_xz(ii, jj) = each_ele_strain(4, 1,strain_counter-1);
+        else
+            strain_mesh_xz(ii, jj) = each_ele_strain(1, 1,strain_counter);
+            strain_counter = strain_counter + 1;
+        end
+    end
+end
+figure;
+contourf(distinct_y, distinct_z, strain_mesh_xz);
+colorbar;

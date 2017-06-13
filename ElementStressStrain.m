@@ -21,11 +21,9 @@ eta_values = [-1, -1, 1, 1, -1, -1, 1, 1];
 nu_values = [-1, -1, -1, -1, 1, 1, 1, 1];
 
 for ii = 1:8
-    temp = getStrainB(element_nodal_coordinates, element_mod_of_elas, zeta_values(ii), eta_values(ii), nu_values(ii));
+    temp = getStrainB(element_nodal_coordinates, zeta_values(ii), eta_values(ii), nu_values(ii));
     strain(ii, :) = (temp*nodal_disp).';
 end
 
 max_ele_strain = max(max(abs(strain)));
-
-
 end
