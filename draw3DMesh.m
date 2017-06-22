@@ -1,11 +1,12 @@
 function draw3DMesh(nodal_coordinate, faces)
 %**************************************************************************
-% Use patch to generate the 3D mesh for the given wall.
+% Uses patch to draw 3D mesh for the given wall.
 %**************************************************************************
 %
 % Input parameters:
-% nodal_coordinate - @todo
-% faces            - @todo
+% nodal_coordinate - Nodal coordinate matrix.
+% faces            - Face matrix containing face connection for each
+%                    elements together for plotting using patch.
 
 figure;
 patch('Vertices',nodal_coordinate,'Faces',faces,...

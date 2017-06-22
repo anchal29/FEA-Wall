@@ -32,7 +32,7 @@ element_nodal_coordinates = sym('nodal_coordinates', [8, 3]);
 for i = 1:8
     N(i) = 1/8*(1 + zeta*zeta_at_nodes(i))*(1 + eta*eta_at_nodes(i))*(1 + nu*nu_at_nodes(i));
 end
-% disp(shape_function_matrix);
+
 %% Jacobian Matrix
 intrinsic_coord = [zeta, eta, nu];
 % Calculating the matrix of differentiation of shape function wrt intrinsic

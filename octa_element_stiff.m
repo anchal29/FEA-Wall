@@ -25,18 +25,18 @@ function [stiff, shape_function_matrix] = octa_element_stiff(mod_of_elas, elemen
 %      /                             | /          | /  
 %    (x)                          (2)|/___________|/(3)
 
+%% Shape Function
 zeta_at_nodes = [-1, 1, 1, -1, -1, 1, 1, -1];
 eta_at_nodes = [-1, -1, 1, 1, -1, -1, 1, 1];
 nu_at_nodes = [-1, -1, -1, -1, 1, 1, 1, 1];
 syms zeta eta nu;
-%% Shape Function
-% Shape functions for 4 noded rectangular element.
+
 shape_function_matrix = [];
 for i = 1:8
     N(i) = 1/8*(1 + zeta*zeta_at_nodes(i))*(1 + eta*eta_at_nodes(i))*(1 + nu*nu_at_nodes(i));
     shape_function_matrix = [shape_function_matrix,N(i)*eye(3)];
 end
-% disp(shape_function_matrix);
+
 %% Jacobian Matrix
 intrinsic_coord = [zeta, eta, nu];
 % Calculating the matrix of differentiation of shape function wrt intrinsic

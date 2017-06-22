@@ -1,4 +1,4 @@
-function[max_ele_strain, strain] = ElementStressStrain(element_nodal_coordinates, element_mod_of_elas, nodal_disp)
+function[max_ele_strain, strain] = ElementStressStrain(element_nodal_coordinates, nodal_disp)
 %**************************************************************************
 % Computes global stiffness matrix. Appends the element stiffness matrix
 % into global stiffness matrix.

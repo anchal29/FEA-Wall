@@ -18,13 +18,14 @@ for ii = 1:length(distinct_elements)
 %     [ele_stiff, shape_function_matrix] = octa_element_stiff(element_mod_of_elas(distinct_elements(i)), nodal_coordinate(nodal_connect(distinct_elements(i),:).', :));
     stiff(:, :, ii) = ele_stiff(:).';
 end
+whos stiff;
 toc
 disp('Done!');
 
 %% Calculating the global stiffness matrix
 disp('Assembling global stiffness matrix...')
 tic
-[global_stiff] = global_stiff_calculation(nodal_coordinate, nodal_connect, element_mod_of_elas, distinct_coordinates, distinct_elements, stiff);
+[global_stiff] = global_stiff_calculation(nodal_coordinate, nodal_connect, element_mod_of_elas, distinct_coordinates, stiff);
 toc
 disp('Done!');
 % Make the global stiffness matrix symmetric and handle any bug in

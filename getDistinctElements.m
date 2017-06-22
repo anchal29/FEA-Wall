@@ -18,8 +18,14 @@ function [distinct_elements, distinct_coordinates] = getDistinctElements(nodal_c
 %                       all the elements.
 % 
 % Output:
-% distinct_elements   - @todo
-% distinct_coordinate - @todo
+% distinct_elements   - Stores distinct element numbers.
+% distinct_coordinate - Stores respective distinct elements dimension plus
+%                       its E value.
+%
+% Since we have cuboid elements thus if there dimensions are same we could 
+% save some CPU cycle by not calculating stiffness matrix again for them.
+% This function returns the distinct elements considering their dimensions
+% and E value.
 
 distinct_coordinates = [];
 distinct_elements = [];

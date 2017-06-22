@@ -1,4 +1,4 @@
-function [global_stiff] = global_stiff_calculation(nodal_coordinate, nodal_connect, element_mod_of_elas, distinct_coordinates, distinct_elements, stiff)
+function [global_stiff] = global_stiff_calculation(nodal_coordinate, nodal_connect, element_mod_of_elas, distinct_coordinates, stiff)
 %**************************************************************************
 % Computes global stiffness matrix. Appends the element stiffness matrix
 % into global stiffness matrix.

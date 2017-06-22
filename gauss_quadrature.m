@@ -1,7 +1,7 @@
 function [gaussian_points, weights] =  gauss_quadrature(num_points) 
 %**************************************************************************
 % Returns the weight and location of the gaussian points using which
-% numerical integral of an definite integral can be caluclated.
+% numerical integral of an definite integral can be caluclated. 3D case.
 %**************************************************************************
 %
 % Input parameter:

@@ -49,8 +49,8 @@ else
     pois_ratio = .3;
     bar_dia = 12; % 12mm diameter bars
     condition = 'all_fixed';
-    vertical_spacing = 250; % 250 mm soacing of verticle reinforcement.
-    horz_spacing = 300; % 300 mm soacing of horizontal reinforcement.
+    vertical_spacing = 250; % 250 mm spacing of verticle reinforcement.
+    horz_spacing = 300; % 300 mm spacing of horizontal reinforcement.
     vertical_dia = 6; % 6mm bars used for verticle reinforcement.
     horz_dia = 6;
     conc_grade = 25;
@@ -64,10 +64,6 @@ conc_E = 5000 * sqrt(conc_grade);
 steel_Et = steel_E / 5;
 conc_Et = conc_E / 10;
 steel_yield_strain = steel_grade / steel_E;
-% % Converting all the input in SI unit 
-% thickness = thickness * 10^(-3);
-% mod_of_elas= mod_of_elas * 10^6;
-% bar_dia = bar_dia * 10^-3;
 
 % Dimensions matrix is in mm so to avoid float values.
 dimension = [thickness, width, height];
@@ -106,19 +102,9 @@ no_elements = length(nodal_connect);
 total_no_nodes = length(nodal_coordinate);
 total_nodal_displ = zeros(total_no_nodes*3, 1);
 element_mapping = ElementMapping(nodal_connect, no_elements);
+% Initialize the E vector for each element with elastic modulus of
+% elasticity.
 element_mod_of_elas = steel_E.*element_type_steel(1:no_elements) + conc_E.*(~element_type_steel(1:no_elements));
-
-load = zeros(total_no_nodes*3, 1);
-% Point load on centre
-load(floor((mesh_meta_data(2)+1)*(mesh_meta_data(3)+1)/2)) = 100000;
-% load(1:3:end) = 10000;
-% load_step = 50000;
-% for load_step = 20000:20000:200000
-% residual_force = 0
-%     while(any(residual_force(:) = 0))
-%         Do the usual
-%     end
-% end
 
 %*********************************************************************
 % Above calculated informations are not needed to be calculated again.
@@ -126,14 +112,14 @@ load(floor((mesh_meta_data(2)+1)*(mesh_meta_data(3)+1)/2)) = 100000;
 max_displ = [];
 total_max_strain = zeros(1, no_elements);
 each_ele_strain = zeros(8, 6, no_elements);
-load_range = repmat(20000, 1, 20);
+load_range = repmat(2, 1, 1000);
 load_index = 1;
 for load_step = load_range
     fprintf('\n\t\t Total Load applied now-%d\n\n', load_step*load_index);
     load_index = load_index + 1;
     load = zeros(total_no_nodes*3, 1);
-%     load(1:3:end) = load_step;
-    load(floor((mesh_meta_data(2)+1)*(mesh_meta_data(3)+1)/2)) = load_step;
+    load(1:3:end) = load_step;
+%     load(floor((mesh_meta_data(2)+1)*(mesh_meta_data(3)+1)/2)) = load_step;
     residual_force = load;
 %     disp(load_step);
     while(residual_force(abs(residual_force) > 0))
@@ -166,7 +152,7 @@ for load_step = load_range
         for ii = 1:no_elements
             ele_nodal_disp = nodal_displ(element_mapping(ii, :));
         %     getStrainB(nodal_coordinate(nodal_connect(ii, :).', :), element_mod_of_elas(ii), zeta, eta, nu);
-            [max_ele_strain, ele_strain] = ElementStressStrain(nodal_coordinate(nodal_connect(ii, :).', :), element_mod_of_elas(ii), ele_nodal_disp);
+            [max_ele_strain, ele_strain] = ElementStressStrain(nodal_coordinate(nodal_connect(ii, :).', :), ele_nodal_disp);
             total_max_strain(ii) = total_max_strain(ii) + max_ele_strain;
             % Check if element is going into non lienar state or not. If it is then
             % update the element modulus of elasticity or the stress-strain slope.
@@ -263,4 +249,16 @@ colorbar;
 
 
 %% Plot Force vs deflection
-plot([0 max_displ], [0 cumsum(load_range)], '-o', 'MarkerFaceColor', 'red');
+plot([0 max_displ], [0 cumsum(load_range)], '-', 'MarkerFaceColor', 'red');
+
+%%
+% figure;
+% contourf(distinct_y, distinct_z, displ_mesh);
+% hold on;
+% plot(ceil((mesh_meta_data(2)+1)*(mesh_meta_data(3)+1)/2),'s');
+draw3DMesh(new_nodal_coord, faces);
+%% Mass matrix calculation
+tic
+density = 1;
+[mass, global_mass] = getMassMat(nodal_coordinate, nodal_connect, density, element_mapping);
+toc
