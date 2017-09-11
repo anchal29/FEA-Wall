@@ -2,3 +2,4 @@
 *.m~
 getStrainB.m
 getElementStiffness.m
+getEleNodalBodyForce.m

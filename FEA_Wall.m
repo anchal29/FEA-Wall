@@ -87,7 +87,7 @@ disp('Done!');
 
 %% Draw the mesh
 disp('Plotting Mesh...');
-draw3DMesh(nodal_coordinate, faces);
+% draw3DMesh(nodal_coordinate, faces);
 disp('Done!');
 
 %% Get element type
@@ -100,8 +100,19 @@ disp('Done!');
 no_elements = length(nodal_connect);
 
 total_no_nodes = length(nodal_coordinate);
-total_nodal_displ = zeros(total_no_nodes*3, 1);
 element_mapping = ElementMapping(nodal_connect, no_elements);
+% Load vec must be in N, mm units.
+density = 2.5*10^(-6);
+g = 9.81;
+load_vec = [density*g; 0; 0];
+force_type = "body";
+tic
+nodal_force = getNodalForce(force_type, no_elements, load_vec);
+toc
+tic
+global_force = global_force_vector(nodal_coordinate, nodal_connect, nodal_force, element_mapping);
+toc
+return;
 % Initialize the E vector for each element with elastic modulus of
 % elasticity.
 element_mod_of_elas = steel_E.*element_type_steel(1:no_elements) + conc_E.*(~element_type_steel(1:no_elements));
@@ -109,156 +120,189 @@ element_mod_of_elas = steel_E.*element_type_steel(1:no_elements) + conc_E.*(~ele
 %*********************************************************************
 % Above calculated informations are not needed to be calculated again.
 %*********************************************************************
-max_displ = [];
-total_max_strain = zeros(1, no_elements);
-each_ele_strain = zeros(8, 6, no_elements);
-load_range = repmat(2, 1, 1000);
-load_index = 1;
-for load_step = load_range
-    fprintf('\n\t\t Total Load applied now-%d\n\n', load_step*load_index);
-    load_index = load_index + 1;
-    load = zeros(total_no_nodes*3, 1);
-    load(1:3:end) = load_step;
-%     load(floor((mesh_meta_data(2)+1)*(mesh_meta_data(3)+1)/2)) = load_step;
-    residual_force = load;
-%     disp(load_step);
-    while(residual_force(abs(residual_force) > 0))
-        load = residual_force;
-        %% Stiffness Matrix Calculation
-        global_stiff = getGlobalStiff(nodal_coordinate, nodal_connect, element_mod_of_elas);
+sens_step = 10;
+for step_index = 1:6
+    element_mod_of_elas = steel_E.*element_type_steel(1:no_elements) + conc_E.*(~element_type_steel(1:no_elements));
+    max_displ = [];
+    total_nodal_displ = zeros(total_no_nodes*3, 1);
+    total_max_strain = zeros(1, no_elements);
+    each_ele_strain = zeros(8, 6, no_elements);
+    load_range = repmat(step_index*sens_step, 1, 60/step_index);
+    load_index = 1;
+    for load_step = load_range
+        fprintf('\n\t\t Total Load applied now-%d\n\n', load_step*load_index);
+        load_index = load_index + 1;
+        load = zeros(total_no_nodes*3, 1);
+        load(1:3:end) = load_step;
+    %     load(floor((mesh_meta_data(2)+1)*(mesh_meta_data(3)+1)/2)) = load_step;
+        residual_force = load;
+    %     disp(load_step);
+        while(residual_force(abs(residual_force) > 0))
+            load = residual_force;
+            %% Stiffness Matrix Calculation
+            global_stiff = getGlobalStiff(nodal_coordinate, nodal_connect, element_mod_of_elas);
 
-        %% Boundary conditions
-        disp('Applying boundary conditions...');
-        tic
-        [global_stiff_bc, load_bc] = boundary_conditions(condition, global_stiff, mesh_meta_data, load);
-        toc;
-        disp('Done!');
+            %% Boundary conditions
+            disp('Applying boundary conditions...');
+            tic
+            [global_stiff_bc, load_bc] = boundary_conditions(condition, global_stiff, mesh_meta_data, load);
+            toc;
+            disp('Done!');
 
-        %% Solving linear equation
-        disp('Solving for nodal displacement...');
-        tic
-        % Dont do inverse of global matrix as the resultant matrix may not be a
-        % sparse matrix and we can't store such huge dense matrix.
-        nodal_displ = global_stiff_bc\load_bc;
-        total_nodal_displ = total_nodal_displ + nodal_displ;
-%         nodal_displ = total_nodal_displ;
-        toc
-        disp('Done!');
+            %% Solving linear equation
+            disp('Solving for nodal displacement...');
+            tic
+            % Dont do inverse of global matrix as the resultant matrix may not be a
+            % sparse matrix and we can't store such huge dense matrix.
+            nodal_displ = global_stiff_bc\load_bc;
+            total_nodal_displ = total_nodal_displ + nodal_displ;
+    %         nodal_displ = total_nodal_displ;
+            toc
+            disp('Done!');
 
-        %% Finding out stress and strain values for each elements
-        disp('Calculating element stresses and strains...');
-        tic
-        count = 0;
-        for ii = 1:no_elements
-            ele_nodal_disp = nodal_displ(element_mapping(ii, :));
-        %     getStrainB(nodal_coordinate(nodal_connect(ii, :).', :), element_mod_of_elas(ii), zeta, eta, nu);
-            [max_ele_strain, ele_strain] = ElementStressStrain(nodal_coordinate(nodal_connect(ii, :).', :), ele_nodal_disp);
-            total_max_strain(ii) = total_max_strain(ii) + max_ele_strain;
-            % Check if element is going into non lienar state or not. If it is then
-            % update the element modulus of elasticity or the stress-strain slope.
-            % Also do calcualtions here so that we can find out the force value
-            % using stress. This will be used to find out the residual force.
-            if(total_max_strain(ii) > conc_yield_strain && element_type_steel(ii) == 0)
-                element_mod_of_elas(ii) = conc_Et;
-                count = count + 1;
-            elseif(total_max_strain(ii) > steel_yield_strain && element_type_steel(ii) == 1)
-                element_mod_of_elas(ii) = steel_Et;
-                count = count + 1;
+            %% Finding out stress and strain values for each elements
+            disp('Calculating element stresses and strains...');
+            tic
+            count = 0;
+            for ii = 1:no_elements
+                ele_nodal_disp = nodal_displ(element_mapping(ii, :));
+            %     getStrainB(nodal_coordinate(nodal_connect(ii, :).', :), element_mod_of_elas(ii), zeta, eta, nu);
+                [max_ele_strain, ele_strain] = ElementStressStrain(nodal_coordinate(nodal_connect(ii, :).', :), ele_nodal_disp);
+                total_max_strain(ii) = total_max_strain(ii) + max_ele_strain;
+                % Check if element is going into non lienar state or not. If it is then
+                % update the element modulus of elasticity or the stress-strain slope.
+                % Also do calcualtions here so that we can find out the force value
+                % using stress. This will be used to find out the residual force.
+                if(total_max_strain(ii) > conc_yield_strain && element_type_steel(ii) == 0)
+                    element_mod_of_elas(ii) = conc_Et;
+                    count = count + 1;
+                elseif(total_max_strain(ii) > steel_yield_strain && element_type_steel(ii) == 1)
+                    element_mod_of_elas(ii) = steel_Et;
+                    count = count + 1;
+                end
+                each_ele_strain(:, :, ii) = each_ele_strain(:, :, ii) + ele_strain;
             end
-            each_ele_strain(:, :, ii) = each_ele_strain(:, :, ii) + ele_strain;
+            toc
+            disp('Done!');
+            fprintf('Number of elements that went into non-linear state in this iteration: %d\n', count);
+
+            %% Calculating Residual Force
+            global_stiff = getGlobalStiff(nodal_coordinate, nodal_connect, element_mod_of_elas);
+            disp('Applying boundary conditions...');
+            tic
+            [global_stiff_, load_] = boundary_conditions(condition, global_stiff, mesh_meta_data, load);
+            toc;
+            disp('Done!');
+            internal_force = global_stiff_*nodal_displ;
+            residual_force = load_bc - internal_force;
+            % Remove any floating point error load values
+            residual_force(abs(residual_force)<1e-4) = 0;
+            % 
         end
-        toc
-        disp('Done!');
-        fprintf('Number of elements that went into non-linear state in this iteration: %d\n', count);
-
-        %% Calculating Residual Force
-        global_stiff = getGlobalStiff(nodal_coordinate, nodal_connect, element_mod_of_elas);
-        disp('Applying boundary conditions...');
-        tic
-        [global_stiff_, load_] = boundary_conditions(condition, global_stiff, mesh_meta_data, load);
-        toc;
-        disp('Done!');
-        internal_force = global_stiff_*nodal_displ;
-        residual_force = load_bc - internal_force;
-        % Remove any floating point error load values
-        residual_force(abs(residual_force)<1e-4) = 0;
-        % 
+        max_displ(end+1) = max(total_nodal_displ);
     end
-    max_displ(end+1) = max(total_nodal_displ);
-end
 
-%% Displaying results
-nodal_displ = total_nodal_displ;
-disp('Showing results...');
-tic
-nodal_delta_x = nodal_displ(1:3:length(nodal_displ));
-nodal_delta_y = nodal_displ(2:3:length(nodal_displ));
-nodal_delta_z = nodal_displ(3:3:length(nodal_displ));
-new_nodal_coord = [nodal_delta_x nodal_delta_y nodal_delta_z] + nodal_coordinate;
-% draw3DMesh(new_nodal_coord, faces);
-counter_1 = 1;
-displ_mesh = zeros(mesh_meta_data(3)+1, mesh_meta_data(2)+1);
+    %% Displaying results
+    nodal_displ = total_nodal_displ;
+    disp('Showing results...');
+    tic
+    nodal_delta_x = nodal_displ(1:3:length(nodal_displ));
+    nodal_delta_y = nodal_displ(2:3:length(nodal_displ));
+    nodal_delta_z = nodal_displ(3:3:length(nodal_displ));
+    new_nodal_coord = [nodal_delta_x nodal_delta_y nodal_delta_z] + nodal_coordinate;
+    % draw3DMesh(new_nodal_coord, faces);
+    counter_1 = 1;
+    displ_mesh = zeros(mesh_meta_data(3)+1, mesh_meta_data(2)+1);
 
-for ii = 1:mesh_meta_data(3)+ 1
-    for jj = 1:mesh_meta_data(2)+1
-        displ_mesh(ii, jj) = nodal_displ(counter_1);
-        counter_1 = counter_1 + 3;
-    end
-end
-distinct_z = unique(nodal_coordinate(:, 3), 'rows');
-distinct_y = unique(nodal_coordinate(:, 2), 'rows');
-
-figure;
-contourf(distinct_y, distinct_z, displ_mesh);
-colorbar;
-figure;
-surf(distinct_y, distinct_z, displ_mesh);
-colorbar;
-toc
-
-%%
-temp_counter = 1;
-strain_counter = 1;
-strain_mesh_xz = zeros(mesh_meta_data(3)+1, mesh_meta_data(2)+1);
-
-for ii = 1:mesh_meta_data(3)+ 1
-    for jj = 1:mesh_meta_data(2)+1
-        if(ii == mesh_meta_data(3) && temp_counter == 0)
-           temp_counter = strain_counter;
+    for ii = 1:mesh_meta_data(3)+ 1
+        for jj = 1:mesh_meta_data(2)+1
+            displ_mesh(ii, jj) = nodal_displ(counter_1);
+            counter_1 = counter_1 + 3;
         end
-        if(temp_counter ~= 0 && ii == mesh_meta_data(3)+1)
-            strain_counter = temp_counter;
-            if(jj == mesh_meta_data(2) + 1)
-                strain_mesh_xz(ii, jj) = each_ele_strain(8, 1, strain_counter-1);
+    end
+    distinct_z = unique(nodal_coordinate(:, 3), 'rows');
+    distinct_y = unique(nodal_coordinate(:, 2), 'rows');
+
+%     figure;
+%     contourf(distinct_y, distinct_z, displ_mesh);
+%     colorbar;
+%     figure;
+%     surf(distinct_y, distinct_z, displ_mesh);
+%     colorbar;
+    toc
+
+    %%
+    temp_counter = 1;
+    strain_counter = 1;
+    strain_mesh_xz = zeros(mesh_meta_data(3)+1, mesh_meta_data(2)+1);
+
+    for ii = 1:mesh_meta_data(3)+ 1
+        for jj = 1:mesh_meta_data(2)+1
+            if(ii == mesh_meta_data(3) && temp_counter == 0)
+               temp_counter = strain_counter;
+            end
+            if(temp_counter ~= 0 && ii == mesh_meta_data(3)+1)
+                strain_counter = temp_counter;
+                if(jj == mesh_meta_data(2) + 1)
+                    strain_mesh_xz(ii, jj) = each_ele_strain(8, 1, strain_counter-1);
+                else
+                    strain_mesh_xz(ii, jj) = each_ele_strain(5, 1, strain_counter);
+                    strain_counter = strain_counter + 1;
+                end
+                temp_counter = strain_counter;
+            elseif(jj == mesh_meta_data(2) + 1)
+                strain_mesh_xz(ii, jj) = each_ele_strain(4, 1,strain_counter-1);
             else
-                strain_mesh_xz(ii, jj) = each_ele_strain(5, 1, strain_counter);
+                strain_mesh_xz(ii, jj) = each_ele_strain(1, 1,strain_counter);
                 strain_counter = strain_counter + 1;
             end
-            temp_counter = strain_counter;
-        elseif(jj == mesh_meta_data(2) + 1)
-            strain_mesh_xz(ii, jj) = each_ele_strain(4, 1,strain_counter-1);
-        else
-            strain_mesh_xz(ii, jj) = each_ele_strain(1, 1,strain_counter);
-            strain_counter = strain_counter + 1;
         end
     end
+%     figure;
+%     contourf(distinct_y, distinct_z, strain_mesh_xz);
+%     colorbar;
+
+
+    %% Plot Force vs deflection
+    figure(1);
+    plot([0 max_displ], [0 cumsum(load_range)], '-', 'MarkerFaceColor', 'red');
+    hold on;
 end
-figure;
-contourf(distinct_y, distinct_z, strain_mesh_xz);
-colorbar;
-
-
-%% Plot Force vs deflection
-plot([0 max_displ], [0 cumsum(load_range)], '-', 'MarkerFaceColor', 'red');
-
+legend('Load step: 5', 'Load step: 10', 'Load step: 15', 'Load step: 20', 'Load step: 25', 'Load step: '); 
+% return;
 %%
 % figure;
 % contourf(distinct_y, distinct_z, displ_mesh);
 % hold on;
 % plot(ceil((mesh_meta_data(2)+1)*(mesh_meta_data(3)+1)/2),'s');
-draw3DMesh(new_nodal_coord, faces);
+% draw3DMesh(new_nodal_coord, faces);
+
 %% Mass matrix calculation
 tic
 density = 1;
 [mass, global_mass] = getMassMat(nodal_coordinate, nodal_connect, density, element_mapping);
+% The created mass matrix should be close to symmetric. Make it symmetric
+% and handle the exception case.
+if(max(max(abs(global_mass - global_mass.'))) < 1e-5)
+    global_mass = (global_mass + global_mass.')/2;
+else
+    disp('Variations in mass matrix calculation crossed acceptable error. Aborting...');
+    return;
+end
+
+
 toc
+
+%%
+tic
+[eigVect, eigValMat, conv_flag] = eigs(global_stiff, global_mass, 20, 'sm');
+toc
+% %%
+% W = zeros(total_no_nodes*3,1);
+% phi = zeros(total_no_nodes*3);
+% % Calculating the eigen vector after normalising the vector which we get
+% % from the standard equation
+% for i = 1:total_no_nodes*3
+%     W(i) = sqrt(eigValMat(i,i));
+%     phi(:,i) = eigVect(:,i)/eigVect(numStories,i);
+% end

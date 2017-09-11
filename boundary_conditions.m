@@ -43,7 +43,7 @@ switch condition
     case 'one_free'
         face_fixed = [1, 1, 0, 1];
 end
-
+% face_fixed = [0, 0, 0, 0];
 % Instead of removing the index from matrix. Substitute 0 at those index in
 % stiffness with digonal values as 1 and in load 0 at each of the index.
 % This means we are assuming fixidity at thode nodes.

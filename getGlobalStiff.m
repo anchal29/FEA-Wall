@@ -18,7 +18,7 @@ for ii = 1:length(distinct_elements)
 %     [ele_stiff, shape_function_matrix] = octa_element_stiff(element_mod_of_elas(distinct_elements(i)), nodal_coordinate(nodal_connect(distinct_elements(i),:).', :));
     stiff(:, :, ii) = ele_stiff(:).';
 end
-whos stiff;
+% whos stiff;
 toc
 disp('Done!');
 

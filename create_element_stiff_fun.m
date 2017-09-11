@@ -104,6 +104,6 @@ matlabFunction(stiff, 'File', 'getElementStiffness', 'Optimize' ,false, 'vars', 
 toc
 disp('Done!!');
 tic
-matlabFunction(strain_mat, 'File', 'getStrainB', 'Optimize' ,false, 'vars', {[element_nodal_coordinates], 'mod_of_elas', 'zeta', 'eta', 'nu'});
+matlabFunction(strain_mat, 'File', 'getStrainB', 'Optimize' ,false, 'vars', {[element_nodal_coordinates], 'zeta', 'eta', 'nu'});
 toc
 end

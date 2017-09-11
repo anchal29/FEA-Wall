@@ -38,7 +38,7 @@ for ii = 1:no_elements
     dy = nodal_coordinate(nodal_connect(ii, 3), 2) - nodal_coordinate(nodal_connect(ii, 2), 2);
     dz = nodal_coordinate(nodal_connect(ii, 5), 3) - nodal_coordinate(nodal_connect(ii, 1), 3);
     for jj = 1:8
-        for kk = jj:8
+        for kk = 1:8
             mass(3*jj-2:3*jj, 3*kk-2:3*kk, ii) = eye(3)*density*dx*dy*dz*(1+(zeta(jj)*zeta(kk))/3)*(1+(eta(jj)*eta(kk))/3)*(1+(nu(jj)*nu(kk))/3);
         end
     end
@@ -48,4 +48,5 @@ for ii = 1:no_elements
     values_triplet(24*24*(ii-1)+1:24*24*ii) = mass(:, :, ii);
 end
 global_mass = sparse(I_triplet, J_triplet, values_triplet, total_no_nodes*3, total_no_nodes*3);
+
 end
