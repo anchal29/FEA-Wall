@@ -1,5 +1,6 @@
-function [global_stiff, load] =  boundary_conditions(condition, global_stiff, mesh_meta_data, load)
+function [global_stiff, load, mass] =  boundary_conditions(condition, global_stiff, mesh_meta_data, load, mass)
 %**************************************************************************
+
 % This function applies the given boundary condition over load and 
 % stiffness matrices.
 %**************************************************************************
@@ -10,11 +11,13 @@ function [global_stiff, load] =  boundary_conditions(condition, global_stiff, me
 % mesh_meta_data - Mesh meta data consists of number division in all the
 %                  directions
 % load           - Load vector applied.
+% mass           - Original mass matrix.
 %
 % Output:
 % global_stiff   - Global Stiffness Matrix after application of boundary
 %                  conditions.
 % load           - Load vector after application of BC
+% mass           - Mass matrix after application of BC.
 
 switch condition
     % Figure for reference...
@@ -70,8 +73,9 @@ for ii = mesh_meta_data(1)+1:-1:1
 end
 
 % Apply boundary condition at all the above calculated indices.
-global_stiff(:, index) = 0;
-global_stiff(index, :) = 0;
-global_stiff(index, index) = eye(length(index));
-load(index) = 0;
+global_stiff(:, index) = [];
+global_stiff(index, :) = [];
+mass(:, index) = [];
+mass(index, :) = [];
+load(index, :, :) = [];
 end

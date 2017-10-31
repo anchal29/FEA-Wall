@@ -112,170 +112,9 @@ toc
 tic
 global_force = global_force_vector(nodal_coordinate, nodal_connect, nodal_force, element_mapping);
 toc
-return;
 % Initialize the E vector for each element with elastic modulus of
 % elasticity.
 element_mod_of_elas = steel_E.*element_type_steel(1:no_elements) + conc_E.*(~element_type_steel(1:no_elements));
-
-%*********************************************************************
-% Above calculated informations are not needed to be calculated again.
-%*********************************************************************
-sens_step = 10;
-for step_index = 1:6
-    element_mod_of_elas = steel_E.*element_type_steel(1:no_elements) + conc_E.*(~element_type_steel(1:no_elements));
-    max_displ = [];
-    total_nodal_displ = zeros(total_no_nodes*3, 1);
-    total_max_strain = zeros(1, no_elements);
-    each_ele_strain = zeros(8, 6, no_elements);
-    load_range = repmat(step_index*sens_step, 1, 60/step_index);
-    load_index = 1;
-    for load_step = load_range
-        fprintf('\n\t\t Total Load applied now-%d\n\n', load_step*load_index);
-        load_index = load_index + 1;
-        load = zeros(total_no_nodes*3, 1);
-        load(1:3:end) = load_step;
-    %     load(floor((mesh_meta_data(2)+1)*(mesh_meta_data(3)+1)/2)) = load_step;
-        residual_force = load;
-    %     disp(load_step);
-        while(residual_force(abs(residual_force) > 0))
-            load = residual_force;
-            %% Stiffness Matrix Calculation
-            global_stiff = getGlobalStiff(nodal_coordinate, nodal_connect, element_mod_of_elas);
-
-            %% Boundary conditions
-            disp('Applying boundary conditions...');
-            tic
-            [global_stiff_bc, load_bc] = boundary_conditions(condition, global_stiff, mesh_meta_data, load);
-            toc;
-            disp('Done!');
-
-            %% Solving linear equation
-            disp('Solving for nodal displacement...');
-            tic
-            % Dont do inverse of global matrix as the resultant matrix may not be a
-            % sparse matrix and we can't store such huge dense matrix.
-            nodal_displ = global_stiff_bc\load_bc;
-            total_nodal_displ = total_nodal_displ + nodal_displ;
-    %         nodal_displ = total_nodal_displ;
-            toc
-            disp('Done!');
-
-            %% Finding out stress and strain values for each elements
-            disp('Calculating element stresses and strains...');
-            tic
-            count = 0;
-            for ii = 1:no_elements
-                ele_nodal_disp = nodal_displ(element_mapping(ii, :));
-            %     getStrainB(nodal_coordinate(nodal_connect(ii, :).', :), element_mod_of_elas(ii), zeta, eta, nu);
-                [max_ele_strain, ele_strain] = ElementStressStrain(nodal_coordinate(nodal_connect(ii, :).', :), ele_nodal_disp);
-                total_max_strain(ii) = total_max_strain(ii) + max_ele_strain;
-                % Check if element is going into non lienar state or not. If it is then
-                % update the element modulus of elasticity or the stress-strain slope.
-                % Also do calcualtions here so that we can find out the force value
-                % using stress. This will be used to find out the residual force.
-                if(total_max_strain(ii) > conc_yield_strain && element_type_steel(ii) == 0)
-                    element_mod_of_elas(ii) = conc_Et;
-                    count = count + 1;
-                elseif(total_max_strain(ii) > steel_yield_strain && element_type_steel(ii) == 1)
-                    element_mod_of_elas(ii) = steel_Et;
-                    count = count + 1;
-                end
-                each_ele_strain(:, :, ii) = each_ele_strain(:, :, ii) + ele_strain;
-            end
-            toc
-            disp('Done!');
-            fprintf('Number of elements that went into non-linear state in this iteration: %d\n', count);
-
-            %% Calculating Residual Force
-            global_stiff = getGlobalStiff(nodal_coordinate, nodal_connect, element_mod_of_elas);
-            disp('Applying boundary conditions...');
-            tic
-            [global_stiff_, load_] = boundary_conditions(condition, global_stiff, mesh_meta_data, load);
-            toc;
-            disp('Done!');
-            internal_force = global_stiff_*nodal_displ;
-            residual_force = load_bc - internal_force;
-            % Remove any floating point error load values
-            residual_force(abs(residual_force)<1e-4) = 0;
-            % 
-        end
-        max_displ(end+1) = max(total_nodal_displ);
-    end
-
-    %% Displaying results
-    nodal_displ = total_nodal_displ;
-    disp('Showing results...');
-    tic
-    nodal_delta_x = nodal_displ(1:3:length(nodal_displ));
-    nodal_delta_y = nodal_displ(2:3:length(nodal_displ));
-    nodal_delta_z = nodal_displ(3:3:length(nodal_displ));
-    new_nodal_coord = [nodal_delta_x nodal_delta_y nodal_delta_z] + nodal_coordinate;
-    % draw3DMesh(new_nodal_coord, faces);
-    counter_1 = 1;
-    displ_mesh = zeros(mesh_meta_data(3)+1, mesh_meta_data(2)+1);
-
-    for ii = 1:mesh_meta_data(3)+ 1
-        for jj = 1:mesh_meta_data(2)+1
-            displ_mesh(ii, jj) = nodal_displ(counter_1);
-            counter_1 = counter_1 + 3;
-        end
-    end
-    distinct_z = unique(nodal_coordinate(:, 3), 'rows');
-    distinct_y = unique(nodal_coordinate(:, 2), 'rows');
-
-%     figure;
-%     contourf(distinct_y, distinct_z, displ_mesh);
-%     colorbar;
-%     figure;
-%     surf(distinct_y, distinct_z, displ_mesh);
-%     colorbar;
-    toc
-
-    %%
-    temp_counter = 1;
-    strain_counter = 1;
-    strain_mesh_xz = zeros(mesh_meta_data(3)+1, mesh_meta_data(2)+1);
-
-    for ii = 1:mesh_meta_data(3)+ 1
-        for jj = 1:mesh_meta_data(2)+1
-            if(ii == mesh_meta_data(3) && temp_counter == 0)
-               temp_counter = strain_counter;
-            end
-            if(temp_counter ~= 0 && ii == mesh_meta_data(3)+1)
-                strain_counter = temp_counter;
-                if(jj == mesh_meta_data(2) + 1)
-                    strain_mesh_xz(ii, jj) = each_ele_strain(8, 1, strain_counter-1);
-                else
-                    strain_mesh_xz(ii, jj) = each_ele_strain(5, 1, strain_counter);
-                    strain_counter = strain_counter + 1;
-                end
-                temp_counter = strain_counter;
-            elseif(jj == mesh_meta_data(2) + 1)
-                strain_mesh_xz(ii, jj) = each_ele_strain(4, 1,strain_counter-1);
-            else
-                strain_mesh_xz(ii, jj) = each_ele_strain(1, 1,strain_counter);
-                strain_counter = strain_counter + 1;
-            end
-        end
-    end
-%     figure;
-%     contourf(distinct_y, distinct_z, strain_mesh_xz);
-%     colorbar;
-
-
-    %% Plot Force vs deflection
-    figure(1);
-    plot([0 max_displ], [0 cumsum(load_range)], '-', 'MarkerFaceColor', 'red');
-    hold on;
-end
-legend('Load step: 5', 'Load step: 10', 'Load step: 15', 'Load step: 20', 'Load step: 25', 'Load step: '); 
-% return;
-%%
-% figure;
-% contourf(distinct_y, distinct_z, displ_mesh);
-% hold on;
-% plot(ceil((mesh_meta_data(2)+1)*(mesh_meta_data(3)+1)/2),'s');
-% draw3DMesh(new_nodal_coord, faces);
 
 %% Mass matrix calculation
 tic
@@ -290,19 +129,74 @@ else
     return;
 end
 
+% Since this is static analysis thus the global stiffness matrix will not
+% vary as per time. Calculate stiffness matrix once.
+global_stiff = getGlobalStiff(nodal_coordinate, nodal_connect, element_mod_of_elas);
 
-toc
-
-%%
+disp('Assembling force from earthquake ground motion...');
 tic
-[eigVect, eigValMat, conv_flag] = eigs(global_stiff, global_mass, 20, 'sm');
+P = load('Elcentro.txt');
+P(:, 2) = (P(:,2)*g);
+force_time_history = P(:,2);
+for i = 1:length(P)
+    load_vec_time_history(:, :, i) = force_time_history(i)*global_mass*ones(total_no_nodes*3,1);
+end
+time_step = 0.02;
 toc
-% %%
-% W = zeros(total_no_nodes*3,1);
-% phi = zeros(total_no_nodes*3);
-% % Calculating the eigen vector after normalising the vector which we get
-% % from the standard equation
-% for i = 1:total_no_nodes*3
-%     W(i) = sqrt(eigValMat(i,i));
-%     phi(:,i) = eigVect(:,i)/eigVect(numStories,i);
-% end
+
+disp('Applying boundary conditions...');
+tic
+[global_stiff_bc, load_bc, global_mass_bc] = boundary_conditions(condition, global_stiff, mesh_meta_data, load_vec_time_history, global_mass);
+toc;
+disp('Done!');
+total_max_strain = zeros(1, no_elements);
+max_displ = [];
+
+
+%% Initialization for applying newmarks's method
+total_dof = length(global_stiff_bc);
+nodal_disp = zeros(total_dof, 1, length(force_time_history));
+nodal_vel = zeros(total_dof, 1, length(force_time_history));
+nodal_acc = zeros(total_dof, 1, length(force_time_history));
+
+disp('Newmarks method preprocessing:');
+tic
+alpha = 0.25;
+delta = 0.5;
+
+a = [1/(alpha*(time_step)^2);
+     delta/(alpha*time_step);
+     1/(time_step*alpha);
+     (1/(2*alpha)) - 1;
+     (delta/alpha) - 1;
+     (time_step/2)*((delta/alpha) - 2);
+     (time_step*(1 - delta));
+     delta*time_step;
+];
+% Damping matrix is zero otherwise add a damping matrix term here.
+eff_stiff = global_stiff_bc + a(1)*global_mass_bc;
+% The created effective stiffness matrix should be close to symmetric. Make 
+% it symmetric and handle the exception case.
+if(max(max(abs(eff_stiff - eff_stiff.'))) < 1e-5)
+    eff_stiff= (eff_stiff+ eff_stiff.')/2;
+else
+    disp('Variations in effective stiffness matrix calculation crossed acceptable error. Aborting...');
+    return;
+end
+[L, D, ~] = ldl(eff_stiff);
+toc
+
+
+%% Solution
+%*********************************************************************
+% Above calculated informations are not needed to be calculated again.
+%*********************************************************************
+for i = 1:length(force_time_history)
+    disp('Applying Newmarks...')
+    tic
+    [nodal_disp, nodal_vel, nodal_acc] = apply_newmarks(eff_stiff, global_mass_bc, load_bc(:, :, i), nodal_disp, nodal_vel, nodal_acc, time_step, i, L, D);
+    toc
+    disp('Done!');
+%     max_displ(end+1) = max(nodal_disp(:, :, i));
+    break;
+end
