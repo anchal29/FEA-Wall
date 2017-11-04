@@ -21,16 +21,22 @@ function [nodal_disp, nodal_vel, nodal_acc] = apply_cdm(global_stiff, global_mas
 % nodal_vel = zeros(total_dof, 1);
 % nodal_acc = zeros(total_dof, 1);
 % time_index = t/time_step+1;
+a = [1/(time_step)^2;
+     1/(time_step*2);
+     2/time_step^2;
+     ((time_step)^2)/2];
+eff_mass = a(1)*global_mass;
+% The created effective mass matrix should be close to symmetric. Make 
+% it symmetric and handle the exception case.
+if(max(max(abs(eff_mass - eff_mass.'))) < 1e-5)
+    eff_mass= (eff_mass+ eff_mass.')/2;
+else
+    disp('Variations in effective mass matrix calculation crossed acceptable error. Aborting...');
+    return;
+end
 
-a_zero = 1/(time_step)^2;
-a_one = 1/(time_step*2);
-a_two = time_step*2;
-a_three = 1/a_two;
-u_minus_delta_t = u_zero - time_step*v_zero + a_three*a_zero;
-damp_mat = 0;
-eff_mass = a_zero*global_mass + a_one*damp_mat;
-eff_load = force_vec - (global_stiff - a_two*global_mass)*nodal_disp(:, :, time_index) - (a_zero*global_mass - a_one*damp_mat)*nodal_disp(:, :, time_index-1);
+eff_load = force_vec - (global_stiff - a(3)*global_mass)*nodal_disp(:, :, time_index) - (a(1)*global_mass)*nodal_disp(:, :, time_index-1);
 nodal_disp(:, :, time_index+1) = eff_mass\eff_load;
-nodal_vel(:, :, time_index) = a_zero(nodal_disp(:, :, time_index-1) - 2*nodal_disp(:, :, time_index)  + nodal_disp(:, :, time_index+1));
-nodal_acc(:, :, time_index) = a_one(nodal_disp(:, :, time_index-1) + nodal_disp(:, :, time_index+1));
+nodal_vel = a(1)*(nodal_disp(:, :, time_index-1) - 2*nodal_disp(:, :, time_index)  + nodal_disp(:, :, time_index+1));
+nodal_acc = a(2)*(nodal_disp(:, :, time_index-1) + nodal_disp(:, :, time_index+1));
 end

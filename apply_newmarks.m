@@ -1,4 +1,4 @@
-function [nodal_disp, nodal_vel, nodal_acc] = apply_newmarks(eff_stiff, global_mass, force_vec, nodal_disp, nodal_vel, nodal_acc, time_step, time_index, L, D)
+function [nodal_disp, nodal_vel, nodal_acc] = apply_newmarks(eff_stiff, global_mass, force_vec, nodal_disp, nodal_vel, nodal_acc, time_step, time_index, L, D, P)
 %**************************************************************************
 % Apply Newmarks Method at time t.
 %**************************************************************************
@@ -41,28 +41,9 @@ toc
 disp('Done!');
 disp('Solving equillibrium equation....');
 tic
-nodal_disp(:, :, time_index+1) = L*D*L'\eff_load;
+nodal_disp(:, :, time_index+1) = P*(L'\(D\(L\(P'\eff_load))));
 nodal_acc(:, :, time_index+1) = a(1)*(nodal_disp(:, :, time_index+1) - nodal_disp(:, :, time_index)) - a(3)*nodal_vel(:, :, time_index) - a(4)*nodal_acc(:, :, time_index);
 nodal_vel(:, :, time_index+1)= nodal_disp(:, :, time_index) - a(7)*nodal_acc(:, :, time_index) - a(8)*nodal_acc(:, :, time_index+1);
 toc
 disp('Done!');
-
-disp('Solving equillibrium equation....');
-tic
-nodal_disp(:, :, time_index+1) = eff_stiff\eff_load;
-nodal_acc(:, :, time_index+1) = a(1)*(nodal_disp(:, :, time_index+1) - nodal_disp(:, :, time_index)) - a(3)*nodal_vel(:, :, time_index) - a(4)*nodal_acc(:, :, time_index);
-nodal_vel(:, :, time_index+1)= nodal_disp(:, :, time_index) - a(7)*nodal_acc(:, :, time_index) - a(8)*nodal_acc(:, :, time_index+1);
-toc
-disp('Done!');
-
-disp('Solving equillibrium equation....');
-tic
-LSopts.SYM = true;
-LSopts.POSDEF = true;
-nodal_disp(:, :, time_index+1) = linsolve(eff_stiff, eff_load, LSopts);
-nodal_acc(:, :, time_index+1) = a(1)*(nodal_disp(:, :, time_index+1) - nodal_disp(:, :, time_index)) - a(3)*nodal_vel(:, :, time_index) - a(4)*nodal_acc(:, :, time_index);
-nodal_vel(:, :, time_index+1)= nodal_disp(:, :, time_index) - a(7)*nodal_acc(:, :, time_index) - a(8)*nodal_acc(:, :, time_index+1);
-toc
-disp('Done!');
-
 end

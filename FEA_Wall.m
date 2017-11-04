@@ -138,8 +138,9 @@ tic
 P = load('Elcentro.txt');
 P(:, 2) = (P(:,2)*g);
 force_time_history = P(:,2);
+mass_col = global_mass*ones(total_no_nodes*3,1);
 for i = 1:length(P)
-    load_vec_time_history(:, :, i) = force_time_history(i)*global_mass*ones(total_no_nodes*3,1);
+    load_vec_time_history(:, :, i) = force_time_history(i)*mass_col;
 end
 time_step = 0.02;
 toc
@@ -153,12 +154,48 @@ total_max_strain = zeros(1, no_elements);
 max_displ = [];
 
 
+%% Initialization for applying CDM
+total_dof = length(global_stiff_bc);
+nodal_disp_cdm = zeros(total_dof, 1, length(force_time_history));
+nodal_vel_cdm = zeros(total_dof, 1, length(force_time_history));
+nodal_acc_cdm = zeros(total_dof, 1, length(force_time_history));
+nodal_acc_cdm(:, :, 2) = P(1, 2)*ones(total_dof, 1);
+
+disp('CDM preprocessing:');
+tic
+a = [1/(time_step)^2;
+     1/(time_step*2);
+     2/time_step^2;
+     ((time_step)^2)/2];
+nodal_disp_cdm(:, :, 1) = a(4)*nodal_acc_cdm(:, :, 2);
+
+%% Solution
+%*********************************************************************
+% Above calculated informations are not needed to be calculated again.
+%*********************************************************************
+for i = 2:length(force_time_history)
+    disp('Applying CDM...')
+    tic
+    [nodal_disp_cdm, nodal_vel_cdm(:, :, i), nodal_acc_cdm(:, :, i)] = apply_cdm(global_stiff_bc, global_mass_bc, load_bc(:, :, i-1), nodal_disp_cdm, time_step, i);
+    toc
+    disp('Done!');
+    end
+
+%% Plot
+max_displ_cdm = [];
+for i = 1:length(force_time_history)
+    max_displ_cdm(end+1) = max(nodal_disp_cdm(:, :, i));
+end
+plot(0:length(force_time_history)-1, max_displ_cdm);
+
+
+
 %% Initialization for applying newmarks's method
 total_dof = length(global_stiff_bc);
 nodal_disp = zeros(total_dof, 1, length(force_time_history));
 nodal_vel = zeros(total_dof, 1, length(force_time_history));
 nodal_acc = zeros(total_dof, 1, length(force_time_history));
-
+nodal_acc(:, :, 1) = P(1, 2)*ones(total_dof, 1);
 disp('Newmarks method preprocessing:');
 tic
 alpha = 0.25;
@@ -183,7 +220,7 @@ else
     disp('Variations in effective stiffness matrix calculation crossed acceptable error. Aborting...');
     return;
 end
-[L, D, ~] = ldl(eff_stiff);
+[L, D, P] = ldl(eff_stiff);
 toc
 
 
@@ -194,9 +231,20 @@ toc
 for i = 1:length(force_time_history)
     disp('Applying Newmarks...')
     tic
-    [nodal_disp, nodal_vel, nodal_acc] = apply_newmarks(eff_stiff, global_mass_bc, load_bc(:, :, i), nodal_disp, nodal_vel, nodal_acc, time_step, i, L, D);
+    [nodal_disp, nodal_vel, nodal_acc] = apply_newmarks(eff_stiff, global_mass_bc, load_bc(:, :, i), nodal_disp, nodal_vel, nodal_acc, time_step, i, L, D, P);
     toc
     disp('Done!');
 %     max_displ(end+1) = max(nodal_disp(:, :, i));
     break;
 end
+%% Plot
+max_displ = [];
+for i = 1:length(force_time_history)
+    max_displ(end+1) = max(nodal_disp(:, :, i));
+end
+plot(0:length(force_time_history)-1, max_disp);
+
+
+
+
+
