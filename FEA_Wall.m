@@ -220,7 +220,6 @@ else
     disp('Variations in effective stiffness matrix calculation crossed acceptable error. Aborting...');
     return;
 end
-[L, D, P] = ldl(eff_stiff);
 toc
 
 
@@ -231,7 +230,7 @@ toc
 for i = 1:length(force_time_history)
     disp('Applying Newmarks...')
     tic
-    [nodal_disp, nodal_vel, nodal_acc] = apply_newmarks(eff_stiff, global_mass_bc, load_bc(:, :, i), nodal_disp, nodal_vel, nodal_acc, time_step, i, L, D, P);
+    [nodal_disp, nodal_vel, nodal_acc] = apply_newmarks(eff_stiff, global_mass_bc, load_bc(:, :, i), nodal_disp, nodal_vel, nodal_acc, time_step, i);
     toc
     disp('Done!');
 %     max_displ(end+1) = max(nodal_disp(:, :, i));

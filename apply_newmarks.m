@@ -41,9 +41,9 @@ toc
 disp('Done!');
 disp('Solving equillibrium equation....');
 tic
-nodal_disp(:, :, time_index+1) = P*(L'\(D\(L\(P'\eff_load))));
+nodal_disp(:, :, time_index+1) = eff_stiff\eff_load;
 nodal_acc(:, :, time_index+1) = a(1)*(nodal_disp(:, :, time_index+1) - nodal_disp(:, :, time_index)) - a(3)*nodal_vel(:, :, time_index) - a(4)*nodal_acc(:, :, time_index);
-nodal_vel(:, :, time_index+1)= nodal_disp(:, :, time_index) - a(7)*nodal_acc(:, :, time_index) - a(8)*nodal_acc(:, :, time_index+1);
+nodal_vel(:, :, time_index+1)= nodal_vel(:, :, time_index) - a(7)*nodal_acc(:, :, time_index) - a(8)*nodal_acc(:, :, time_index+1);
 toc
 disp('Done!');
 end
