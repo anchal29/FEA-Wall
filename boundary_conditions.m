@@ -1,4 +1,4 @@
-function [global_stiff, load, mass] =  boundary_conditions(condition, global_stiff, mesh_meta_data, load, mass)
+function [global_stiff, load, mass, index] =  boundary_conditions(condition, global_stiff, mesh_meta_data, load, mass)
 %**************************************************************************
 
 % This function applies the given boundary condition over load and 
@@ -18,6 +18,7 @@ function [global_stiff, load, mass] =  boundary_conditions(condition, global_sti
 %                  conditions.
 % load           - Load vector after application of BC
 % mass           - Mass matrix after application of BC.
+% index          - Index of all the boundary points in the original frame.
 
 switch condition
     % Figure for reference...

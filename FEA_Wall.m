@@ -153,7 +153,9 @@ toc
 
 disp('Applying boundary conditions...');
 tic
-[global_stiff_bc, load_bc, global_mass_bc] = boundary_conditions(condition, global_stiff, mesh_meta_data, load_vec_time_history, global_mass);
+[global_stiff_bc, load_bc, global_mass_bc, boundary_pt_index] = boundary_conditions(condition, global_stiff, mesh_meta_data, load_vec_time_history, global_mass);
+all_indices = 1:total_no_nodes*3;
+non_boundary_indices = setdiff(all_indices, boundary_pt_index);
 toc;
 disp('Done!');
 
@@ -255,7 +257,7 @@ for ii = 1:mesh_meta_data(3)
 end
 % Distinct dz values
 distinct_dz_coordinates = unique(nodal_coordinate(:, 3));
-distinct_dz_coordinates = distinct_dz_coordinates(2:end);
+distinct_dz_coordinates = distinct_dz_coordinates(2:end); %Excluding 0
 %%
 figure;
 plot(distinct_dz_coordinates, max_acc_each_time_step/9.8/1000, '-p', 'MarkerEdgeColor', 'red', 'MarkerFaceColor', 'white', 'LineWidth', 1.5);
@@ -268,7 +270,36 @@ plot(distinct_dz_coordinates, max_disp_each_time_step, '-s', 'MarkerEdgeColor', 
 xlabel('Height (mm)', 'FontSize', 12, 'FontWeight', 'bold');
 ylabel('Displacement (mm)', 'FontSize', 12, 'FontWeight', 'bold');
 title('Max displacement at each level');
+%%
+% To find out overall displacement including the removed boundary points
+final_disp = zeros(total_dof, 1);
+% Setting boundary point displacement to be zero
+final_disp(boundary_pt_index) = 0; 
+final_disp(non_boundary_indices) = nodal_disp(:, :, end);
+nodal_delta_x = final_disp(1:3:length(final_disp));
+nodal_delta_y = final_disp(2:3:length(final_disp));
+nodal_delta_z = final_disp(3:3:length(final_disp));
+% Here multiplying by a factor just to visualize the deformation.
+new_nodal_coord = 100*[nodal_delta_x nodal_delta_y nodal_delta_z] + nodal_coordinate;
+draw3DMesh(new_nodal_coord, faces);
+counter_1 = 1;
+displ_mesh = zeros(mesh_meta_data(3)+1, mesh_meta_data(2)+1);
 
+for ii = 1:mesh_meta_data(3)+ 1
+    for jj = 1:mesh_meta_data(2)+1
+        displ_mesh(ii, jj) = final_disp(counter_1);
+        counter_1 = counter_1 + 3;
+    end
+end
+distinct_z = unique(nodal_coordinate(:, 3), 'rows');
+distinct_y = unique(nodal_coordinate(:, 2), 'rows');
+
+figure;
+contourf(distinct_y, distinct_z, displ_mesh);
+colorbar;
+figure;
+surf(distinct_y, distinct_z, displ_mesh);
+colorbar;
 %% CDM
 %*********************************************************************
 % Commenting CDM as it should not work for elcentro ground motion.
