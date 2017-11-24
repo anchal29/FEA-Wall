@@ -103,7 +103,7 @@ temp_fun = matlabFunction(pre_stiff);
 stiff = zeros(24, 24);
 for i = 1:length(weights)
     temp = gaussian_points;
-    temp_pre_stiff = temp_fun(temp(i, 2), temp(i, 3), temp(i, 1));
+    temp_pre_stiff 	 temp_fun(temp(i, 2), temp(i, 3), temp(i, 1));
     stiff = stiff + double(temp_pre_stiff);
 end
 end

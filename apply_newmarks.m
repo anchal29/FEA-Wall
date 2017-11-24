@@ -1,4 +1,4 @@
-function [nodal_disp, nodal_vel, nodal_acc] = apply_newmarks(eff_stiff, global_mass, force_vec, nodal_disp, nodal_vel, nodal_acc, time_step, time_index, L, D, P)
+function [nodal_disp, nodal_vel, nodal_acc] = apply_newmarks(eff_stiff, global_mass, force_vec, nodal_disp, nodal_vel, nodal_acc, time_step, time_index, da)
 %**************************************************************************
 % Apply Newmarks Method at time t.
 %**************************************************************************
@@ -21,8 +21,8 @@ function [nodal_disp, nodal_vel, nodal_acc] = apply_newmarks(eff_stiff, global_m
 % nodal_vel = zeros(total_dof, 1);
 % nodal_acc = zeros(total_dof, 1);
 % time_index = t/time_step+1;
-disp('Newmarks method preprocessing:');
-tic
+% disp('Newmarks method preprocessing:');
+% tic
 alpha = 0.25;
 delta = 0.5;
 
@@ -37,13 +37,13 @@ a = [1/(alpha*(time_step)^2);
 ];
 
 eff_load = force_vec + global_mass*(a(1)*nodal_disp(:, :, time_index)+a(3)*nodal_vel(:, :, time_index)+a(4)*nodal_acc(:, :, time_index));
-toc
-disp('Done!');
-disp('Solving equillibrium equation....');
-tic
-nodal_disp(:, :, time_index+1) = eff_stiff\eff_load;
+% toc
+% disp('Done!');
+% disp('Solving equillibrium equation....');
+% tic
+nodal_disp(:, :, time_index+1) = da\eff_load;
 nodal_acc(:, :, time_index+1) = a(1)*(nodal_disp(:, :, time_index+1) - nodal_disp(:, :, time_index)) - a(3)*nodal_vel(:, :, time_index) - a(4)*nodal_acc(:, :, time_index);
-nodal_vel(:, :, time_index+1)= nodal_vel(:, :, time_index) - a(7)*nodal_acc(:, :, time_index) - a(8)*nodal_acc(:, :, time_index+1);
-toc
-disp('Done!');
+nodal_vel(:, :, time_index+1)= nodal_vel(:, :, time_index) + a(7)*nodal_acc(:, :, time_index) + a(8)*nodal_acc(:, :, time_index+1);
+% toc
+% disp('Done!');
 end

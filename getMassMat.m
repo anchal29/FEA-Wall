@@ -39,7 +39,8 @@ for ii = 1:no_elements
     dz = nodal_coordinate(nodal_connect(ii, 5), 3) - nodal_coordinate(nodal_connect(ii, 1), 3);
     for jj = 1:8
         for kk = 1:8
-            mass(3*jj-2:3*jj, 3*kk-2:3*kk, ii) = eye(3)*density*dx*dy*dz*(1+(zeta(jj)*zeta(kk))/3)*(1+(eta(jj)*eta(kk))/3)*(1+(nu(jj)*nu(kk))/3);
+%             mass(3*jj-2:3*jj, 3*kk-2:3*kk, ii) = eye(3)*(density(ii)*dx*dy*dz*(1+(zeta(jj)*zeta(kk))/3)*(1+(eta(jj)*eta(kk))/3)*(1+(nu(jj)*nu(kk))/3));
+            mass(3*jj-2:3*jj, 3*kk-2:3*kk, ii) = eye(3)*(density(ii)*dx*dy*dz*(1+(zeta(jj)*zeta(kk))/3)*(1+(eta(jj)*eta(kk))/3)*(1+(nu(jj)*nu(kk))/3))/(8);
         end
     end
     temp = combvec(element_mapping(ii, :), element_mapping(ii, :));
