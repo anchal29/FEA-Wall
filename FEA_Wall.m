@@ -153,7 +153,9 @@ toc
 
 disp('Applying boundary conditions...');
 tic
-[global_stiff_bc, load_bc, global_mass_bc] = boundary_conditions(condition, global_stiff, mesh_meta_data, load_vec_time_history, global_mass);
+[global_stiff_bc, load_bc, global_mass_bc, boundary_pt_indices] = boundary_conditions(condition, global_stiff, mesh_meta_data, load_vec_time_history, global_mass);
+all_indices = 1:total_no_nodes*3;
+non_boundary_indices = setdiff(all_indices, boundary_pt_indices);
 toc;
 disp('Done!');
 
@@ -197,9 +199,25 @@ tic
 % Above calculated informations are not needed to be calculated again.
 %*********************************************************************
 h = waitbar(0,'Please wait...');
+internal_force = zeros(length(global_mass_bc), 1);
 for i = 1:length(force_time_history)
     waitbar(i/length(force_time_history));
-    [nodal_disp, nodal_vel, nodal_acc] = apply_newmarks(eff_stiff, global_mass_bc, load_bc(:, :, i), nodal_disp, nodal_vel, nodal_acc, time_step, i, da);
+    residual_force = load_bc(:, :, i) - internal_force;
+    nodal_disp(:, :, time_index+1) = nodal_disp(:, :, time_index);
+    nodal_vel(:, :, time_index+1) = nodal_vel(:, :, time_index);
+    nodal_acc(:, :, time_index+1) = nodal_acc(:, :, time_index);
+    while(norm(residual_force) < 10^(-6))
+        [disp, vel, acc] = apply_newmarks(global_mass_bc, residual_force, nodal_disp, nodal_vel, nodal_acc, time_step, i, da);
+        nodal_disp(:, :, time_index+1) = disp;
+        nodal_vel(:, :, time_index+1) = vel;
+        nodal_acc(:, :, time_index+1) = acc;
+        % Calculate the stresses and strain.
+        % Using stress compute internal force.
+        internal_force = load_bc(:, :, i);
+        residual_force = load_bc(:, :, i) - internal_force;
+    end
+    
+    
 end
 close(h);
 toc

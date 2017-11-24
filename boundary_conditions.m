@@ -1,4 +1,4 @@
-function [global_stiff, load, mass] =  boundary_conditions(condition, global_stiff, mesh_meta_data, load, mass)
+function [global_stiff, load, mass, index] =  boundary_conditions(condition, global_stiff, mesh_meta_data, load, mass)
 %**************************************************************************
 
 % This function applies the given boundary condition over load and 
