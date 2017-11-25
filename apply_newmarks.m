@@ -1,4 +1,4 @@
-function [disp, vel, acc] = apply_newmarks(global_mass, force_vec, nodal_disp, nodal_vel, nodal_acc, time_step, time_index, da)
+function [disp, vel, acc, delta_U] = apply_newmarks(global_mass, force_vec, nodal_disp, nodal_vel, nodal_acc, time_step, time_index, da)
 %**************************************************************************
 % Apply Newmarks Method at time t.
 %**************************************************************************
@@ -11,9 +11,9 @@ function [disp, vel, acc] = apply_newmarks(global_mass, force_vec, nodal_disp, n
 % time_index  - Index.
 %
 % Output:
-% nodal_disp  - Resultant nodal displacement at time t+time_step.
-% nodal_vec   - Resultant nodal velocity at time t.
-% nodal_acc   - Resultant nodal acceleration at time t.
+% disp  - Resultant nodal displacement at time t+time_step for current iteration.
+% vec   - Resultant nodal velocity at time t+time_step for current iteration.
+% acc   - Resultant nodal acceleration at time t+time_step for current iteration.
 
 % For referece follow this initialization.
 % total_dof = length(global_stiff);

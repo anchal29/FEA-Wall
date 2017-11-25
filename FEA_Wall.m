@@ -194,6 +194,11 @@ toc
 
 tic
 
+overall_disp_now = zeros(total_dof, 1);
+% Setting boundary point displacement to be zero
+overall_disp_now(boundary_pt_index) = 0; 
+total_max_strain = zeros(1, no_elements);
+each_ele_strain = zeros(8, 6, no_elements);
 %% Solution
 %*********************************************************************
 % Above calculated informations are not needed to be calculated again.
@@ -207,17 +212,57 @@ for i = 1:length(force_time_history)
     nodal_vel(:, :, time_index+1) = nodal_vel(:, :, time_index);
     nodal_acc(:, :, time_index+1) = nodal_acc(:, :, time_index);
     while(norm(residual_force) < 10^(-6))
-        [disp, vel, acc] = apply_newmarks(global_mass_bc, residual_force, nodal_disp, nodal_vel, nodal_acc, time_step, i, da);
+        [disp, vel, acc, delta_U] = apply_newmarks(global_mass_bc, residual_force, nodal_disp, nodal_vel, nodal_acc, time_step, i, da);
         nodal_disp(:, :, time_index+1) = disp;
         nodal_vel(:, :, time_index+1) = vel;
         nodal_acc(:, :, time_index+1) = acc;
         % Calculate the stresses and strain.
+        %% Finding out stress and strain values for each element
+        disp('Calculating element stresses and strains...');
+        tic
+        count = 0;
+        overall_disp_now(non_boundary_indices) = delta_U;
+        for ii = 1:no_elements
+            ele_nodal_disp = overall_disp_now(element_mapping(ii, :));
+        %     getStrainB(nodal_coordinate(nodal_connect(ii, :).', :), element_mod_of_elas(ii), zeta, eta, nu);
+            [max_ele_strain, ele_strain] = ElementStressStrain(nodal_coordinate(nodal_connect(ii, :).', :), ele_nodal_disp);
+            total_max_strain(ii) = total_max_strain(ii) + max_ele_strain;
+            % Check if element is going into non lienar state or not. If it is then
+            % update the element modulus of elasticity or the stress-strain slope.
+            % Also do calcualtions here so that we can find out the force value
+            % using stress. This will be used to find out the residual force.
+            if(total_max_strain(ii) > conc_yield_strain && element_type_steel(ii) == 0)
+                element_mod_of_elas(ii) = conc_Et;
+                count = count + 1;
+            elseif(total_max_strain(ii) > steel_yield_strain && element_type_steel(ii) == 1)
+                element_mod_of_elas(ii) = steel_Et;
+                count = count + 1;
+            end
+            each_ele_strain(:, :, ii) = each_ele_strain(:, :, ii) + ele_strain;
+        end
+        toc
+        disp('Done!');
+        fprintf('Number of elements that went into non-linear state in this iteration: %d\n', count);
+%         if(count == 0)
+%             break;
+%         end
+        global_stiff = getGlobalStiff(nodal_coordinate, nodal_connect, element_mod_of_elas);
+        global_stiff_bc = boundary_conditions(condition, global_stiff, mesh_meta_data, load_vec_time_history, global_mass);
+        eff_stiff = global_stiff_bc + a(1)*global_mass_bc;
+        % The created effective stiffness matrix should be close to symmetric. Make 
+        % it symmetric and handle the exception case.
+        if(max(max(abs(eff_stiff - eff_stiff.'))) < 1e-5)
+            eff_stiff= (eff_stiff+ eff_stiff.')/2;
+        else
+            disp('Variations in effective stiffness matrix calculation crossed acceptable error. Aborting...');
+            return;
+        end
+        da = decomposition(eff_stiff);
         % Using stress compute internal force.
-        internal_force = load_bc(:, :, i);
+        
         residual_force = load_bc(:, :, i) - internal_force;
     end
-    
-    
+    internal_force = zeros(length(global_mass_bc), 1); %Resetting the internal forces so that 
 end
 close(h);
 toc
@@ -286,59 +331,33 @@ plot(distinct_dz_coordinates, max_disp_each_time_step, '-s', 'MarkerEdgeColor', 
 xlabel('Height (mm)', 'FontSize', 12, 'FontWeight', 'bold');
 ylabel('Displacement (mm)', 'FontSize', 12, 'FontWeight', 'bold');
 title('Max displacement at each level');
+%%
+% To find out overall displacement including the removed boundary points
+final_disp = zeros(total_dof, 1);
+% Setting boundary point displacement to be zero
+final_disp(boundary_pt_index) = 0; 
+final_disp(non_boundary_indices) = nodal_disp(:, :, end);
+nodal_delta_x = final_disp(1:3:length(final_disp));
+nodal_delta_y = final_disp(2:3:length(final_disp));
+nodal_delta_z = final_disp(3:3:length(final_disp));
+% Here multiplying by a factor just to visualize the deformation.
+new_nodal_coord = 100*[nodal_delta_x nodal_delta_y nodal_delta_z] + nodal_coordinate;
+draw3DMesh(new_nodal_coord, faces);
+counter_1 = 1;
+displ_mesh = zeros(mesh_meta_data(3)+1, mesh_meta_data(2)+1);
 
-%% CDM
-%*********************************************************************
-% Commenting CDM as it should not work for elcentro ground motion.
-% Critical time step is less than 0.02.                       
-%*********************************************************************
-% 
-% %% Initialization for applying CDM
-% total_dof = length(global_stiff_bc);
-% nodal_disp_cdm = zeros(total_dof, 1, length(force_time_history));
-% nodal_vel_cdm = zeros(total_dof, 1, length(force_time_history));
-% nodal_acc_cdm = zeros(total_dof, 1, length(force_time_history));
-% % nodal_acc_cdm(:, :, 2) = P(1, 2)*ones(total_dof, 1);
-% 
-% disp('CDM preprocessing:');
-% tic
-% a = [1/(time_step)^2;
-%      1/(time_step*2);
-%      2/time_step^2;
-%      ((time_step)^2)/2];
-% nodal_disp_cdm(:, :, 1) = a(4)*nodal_acc_cdm(:, :, 2);
-% eff_mass = a(1)*global_mass_bc;
-% % The created effective mass matrix should be close to symmetric. Make 
-% % it symmetric and handle the exception case.
-% if(max(max(abs(eff_mass - eff_mass.'))) < 1e-5)
-%     eff_mass= (eff_mass+ eff_mass.')/2;
-% else
-%     disp('Variations in effective mass matrix calculation crossed acceptable error. Aborting...');
-%     return;
-% end
-% da = decomposition(eff_mass);
-% toc
-% %% Solution
-% %*********************************************************************
-% % Above calculated informations are not needed to be calculated again.
-% %*********************************************************************
-% disp('Applying CDM...')
-% tic
-% for i = 2:length(force_time_history)
-%     disp(i/length(force_time_history)*100);
-%     [nodal_disp_cdm, nodal_vel_cdm(:, :, i), nodal_acc_cdm(:, :, i)] = apply_cdm(global_stiff_bc, global_mass_bc, load_bc(:, :, i-1), nodal_disp_cdm, time_step, i, da);
-% end
-% toc
-% disp('Done!');
-% 
-% %% Single plot;
-% max_displ_cdm = [];
-% for i = 1:length(force_time_history)
-%     max_displ_cdm(end+1) = nodal_disp_cdm(12304, :, i);
-% end
-% % plot(0:length(force_time_history)-1, max_displ_cdm);
-% 
-% plot(P(:,1), max_displ_cdm, 'LineWidth', 1.5);
-% xlabel('Time (sec)', 'FontSize', 12, 'FontWeight', 'bold');
-% ylabel('Displacement (mm)', 'FontSize', 12, 'FontWeight', 'bold');
-% title('Displacement time history for Elcentro GM - Node 12301');
+for ii = 1:mesh_meta_data(3)+ 1
+    for jj = 1:mesh_meta_data(2)+1
+        displ_mesh(ii, jj) = final_disp(counter_1);
+        counter_1 = counter_1 + 3;
+    end
+end
+distinct_z = unique(nodal_coordinate(:, 3), 'rows');
+distinct_y = unique(nodal_coordinate(:, 2), 'rows');
+
+figure;
+contourf(distinct_y, distinct_z, displ_mesh);
+colorbar;
+figure;
+surf(distinct_y, distinct_z, displ_mesh);
+colorbar;
