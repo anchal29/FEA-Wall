@@ -9,7 +9,9 @@
 clear variables;
 clear global;
 clc;
-    
+mkdir('../Logs');
+diary(['../Logs/[',datestr(datetime, 'dd-mmm-yyyy, HH.MM AM'), ']Code_LogsLinearDynamic.txt'])
+
 %% Input
 choice = 0;
 while(~(choice == 1 || choice == 2))
@@ -46,7 +48,7 @@ if choice == 1
 else
     height = 3000;
     width = 5000;
-    thickness = 220;
+    thickness = 170;
     steel_E = 2 * 10^5 * 10^3;
     pois_ratio = .3;
     bar_dia = 12; % 12mm diameter bars
@@ -198,7 +200,7 @@ tic
 %*********************************************************************
 % Above calculated informations are not needed to be calculated again.
 %*********************************************************************
-h = waitbar(0,'Please wait...');
+h = waitbar(0,'Linear dynamic analysis going on...');
 for i = 1:length(force_time_history)
     waitbar(i/length(force_time_history));
     [nodal_disp, nodal_vel, nodal_acc] = apply_newmarks(eff_stiff, global_mass_bc, load_bc(:, :, i), nodal_disp, nodal_vel, nodal_acc, time_step, i, da);
@@ -208,7 +210,7 @@ toc
 %% Plot
 max_displ = [];
 for i = 1:length(force_time_history)
-    max_displ(end+1) = (nodal_disp(147598, :, i));
+    max_displ(end+1) = (nodal_disp(6, :, i));
 end
 max_text = ['\leftarrow Max displacement = ',num2str((max(max_displ)/height)*100), '% of the wall height.'];
 max_index = find(max_displ == max(max_displ));
@@ -257,8 +259,8 @@ for ii = 1:mesh_meta_data(3)
 end
 % Distinct dz values
 distinct_dz_coordinates = unique(nodal_coordinate(:, 3));
-distinct_dz_coordinates = distinct_dz_coordinates(2:end); %Excluding 0
-%%
+distinct_dz_coordinates = distinct_dz_coordinates(2:end);
+
 figure;
 plot(distinct_dz_coordinates, max_acc_each_time_step/9.8/1000, '-p', 'MarkerEdgeColor', 'red', 'MarkerFaceColor', 'white', 'LineWidth', 1.5);
 xlabel('Height (mm)', 'FontSize', 12, 'FontWeight', 'bold');
@@ -271,17 +273,38 @@ xlabel('Height (mm)', 'FontSize', 12, 'FontWeight', 'bold');
 ylabel('Displacement (mm)', 'FontSize', 12, 'FontWeight', 'bold');
 title('Max displacement at each level');
 %%
-% To find out overall displacement including the removed boundary points
-final_disp = zeros(total_dof, 1);
-% Setting boundary point displacement to be zero
-final_disp(boundary_pt_index) = 0; 
-final_disp(non_boundary_indices) = nodal_disp(:, :, end);
-nodal_delta_x = final_disp(1:3:length(final_disp));
-nodal_delta_y = final_disp(2:3:length(final_disp));
-nodal_delta_z = final_disp(3:3:length(final_disp));
-% Here multiplying by a factor just to visualize the deformation.
-new_nodal_coord = 100*[nodal_delta_x nodal_delta_y nodal_delta_z] + nodal_coordinate;
-draw3DMesh(new_nodal_coord, faces);
+h = draw3DMesh(nodal_coordinate, faces);
+filename = ['../Logs/[',datestr(datetime, 'dd-mmm-yyyy, HH.MM AM'), ']ResponseAnimatedLinear.gif'];
+%%
+animation_frames(length(force_time_history)) = struct('cdata',[],'colormap',[]);
+for i = 1:length(force_time_history)
+    % To find out overall displacement including the removed boundary points
+    final_disp = zeros(total_dof, 1);
+    % Setting boundary point displacement to be zero
+    final_disp(boundary_pt_index) = 0; 
+    final_disp(non_boundary_indices) = nodal_disp(:, :, i);
+    nodal_delta_x = final_disp(1:3:length(final_disp));
+    nodal_delta_y = final_disp(2:3:length(final_disp));
+    nodal_delta_z = final_disp(3:3:length(final_disp));
+    % Here multiplying by a factor just to visualize the deformation.
+    new_nodal_coord = 50*[nodal_delta_x nodal_delta_y nodal_delta_z] + nodal_coordinate;
+%     draw3DMesh(new_nodal_coord, faces);
+    set(h, 'Vertices',new_nodal_coord);
+    drawnow limitrate;
+          % Capture the plot as an image 
+    animation_frames(i) = getframe(gca);
+    frame = getframe(gca); 
+    im = frame2im(frame); 
+    [imind,cm] = rgb2ind(im,256); 
+
+    % Write to the GIF File 
+    if i == 1 
+      imwrite(imind,cm,filename,'gif', 'Loopcount', 0, 'Delay', 0.1); 
+    else 
+      imwrite(imind,cm,filename,'gif','WriteMode','append'); 
+    end
+end
+%%
 counter_1 = 1;
 displ_mesh = zeros(mesh_meta_data(3)+1, mesh_meta_data(2)+1);
 
@@ -300,6 +323,10 @@ colorbar;
 figure;
 surf(distinct_y, distinct_z, displ_mesh);
 colorbar;
+%%
+clear global_stiff_bc global_stiff global_mass global_mass_bc da eff_stiff
+diary off;
+save(['../Logs/[Linear_Dynamic',datestr(datetime, 'dd-mmm-yyyy, HH.MM AM'), ']Workspace_Variables.txt']);
 %% CDM
 %*********************************************************************
 % Commenting CDM as it should not work for elcentro ground motion.
