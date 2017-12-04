@@ -1,10 +1,14 @@
-function global_stiff = getGlobalStiff(nodal_coordinate, nodal_connect, element_mod_of_elas)
+function global_stiff = getGlobalStiff(nodal_coordinate, nodal_connect, element_mod_of_elas, time_log)
+if(nargin == 3)
+    time_log = 0; %By default time_log stamps will be absent unless specified.
+end
 %**************************************************************************
 % Complete subroutine to get global stiffness matrix.
 %**************************************************************************
-
-disp('Finding out local stiffness matrix for all the distinct elements...');
-tic
+if(time_log == 1)
+    disp('Finding out local stiffness matrix for all the distinct elements...');
+    tic
+end
 [distinct_elements, distinct_coordinates] = getDistinctElements(nodal_coordinate, nodal_connect, element_mod_of_elas);
 
 stiff = zeros(1, 24*24, length(distinct_elements));
@@ -19,15 +23,20 @@ for ii = 1:length(distinct_elements)
     stiff(:, :, ii) = ele_stiff(:).';
 end
 % whos stiff;
-toc
-disp('Done!');
-
+if(time_log == 1)
+    toc
+    disp('Done!');
+end
 %% Calculating the global stiffness matrix
-disp('Assembling global stiffness matrix...')
-tic
+if(time_log == 1)
+    disp('Assembling global stiffness matrix...')
+    tic
+end
 [global_stiff] = global_stiff_calculation(nodal_coordinate, nodal_connect, element_mod_of_elas, distinct_coordinates, stiff);
-toc
-disp('Done!');
+if(time_log == 1)
+    toc
+    disp('Done!');
+end
 % Make the global stiffness matrix symmetric and handle any bug in
 % calculation of global stiffness matrix calculation.
 if(max(max(abs(global_stiff - global_stiff))) < 1e-5)

@@ -9,7 +9,10 @@
 clear variables;
 clear global;
 clc;
-    
+mkdir('../Logs');
+diary(['../Logs/[',datestr(datetime, 'dd-mmm-yyyy, HH.MM AM'), ']Code_LogsNonLinearDynamic.txt'])
+
+
 %% Input
 choice = 0;
 while(~(choice == 1 || choice == 2))
@@ -46,7 +49,7 @@ if choice == 1
 else
     height = 3000;
     width = 5000;
-    thickness = 220;
+    thickness = 170;
     steel_E = 2 * 10^5 * 10^3;
     pois_ratio = .3;
     bar_dia = 12; % 12mm diameter bars
@@ -88,7 +91,7 @@ disp('Done!');
 
 %% Draw the mesh
 disp('Plotting Mesh...');
-draw3DMesh(nodal_coordinate, faces);
+% draw3DMesh(nodal_coordinate, faces);
 disp('Done!');
 
 %% Get element type
@@ -143,6 +146,7 @@ tic
 P = load('Elcentro.txt');
 P(:, 2) = (P(:,2)*g*10^3);
 force_time_history = P(:,2);
+force_length = length(force_time_history);
 dummy = repmat([1; 0; 0], total_no_nodes, 1);
 mass_col = global_mass*dummy;
 for i = 1:length(P)
@@ -191,35 +195,58 @@ else
 end
 da = decomposition(eff_stiff);
 toc
-
+%***************************************************************
+% When yield strain are high. This should behave as linear one.
+% Just for test purpose.
+conc_yield_strain = 100;
+steel_yield_strain = 100;
+%***************************************************************
 tic
-
+%% Solution
 overall_disp_now = zeros(total_dof, 1);
+yielding_order = zeros(no_elements, force_length);
+yield_counter = 1;
 % Setting boundary point displacement to be zero
-overall_disp_now(boundary_pt_index) = 0; 
+overall_disp_now(boundary_pt_indices) = 0; 
 total_max_strain = zeros(1, no_elements);
 each_ele_strain = zeros(8, 6, no_elements);
-%% Solution
 %*********************************************************************
 % Above calculated informations are not needed to be calculated again.
 %*********************************************************************
-h = waitbar(0,'Please wait...');
+h = waitbar(0,'Nonlinear dynamic analysis...');
 internal_force = zeros(length(global_mass_bc), 1);
-for i = 1:length(force_time_history)
-    waitbar(i/length(force_time_history));
-    residual_force = load_bc(:, :, i) - internal_force;
-    nodal_disp(:, :, time_index+1) = nodal_disp(:, :, time_index);
-    nodal_vel(:, :, time_index+1) = nodal_vel(:, :, time_index);
-    nodal_acc(:, :, time_index+1) = nodal_acc(:, :, time_index);
-    while(norm(residual_force) < 10^(-6))
-        [disp, vel, acc, delta_U] = apply_newmarks(global_mass_bc, residual_force, nodal_disp, nodal_vel, nodal_acc, time_step, i, da);
-        nodal_disp(:, :, time_index+1) = disp;
-        nodal_vel(:, :, time_index+1) = vel;
-        nodal_acc(:, :, time_index+1) = acc;
-        % Calculate the stresses and strain.
-        %% Finding out stress and strain values for each element
-        disp('Calculating element stresses and strains...');
+prev_internal_force = internal_force;
+delta_U_ini = zeros(length(global_mass_bc), 1);
+delta_U = zeros(length(global_mass_bc), 1);
+for i = 1:force_length
+    h = waitbar(i/force_length);
+    eff_force = load_bc(:, :, i) - internal_force;
+    nodal_disp(:, :, i+1) = nodal_disp(:, :, i);
+    nodal_vel(:, :, i+1) = nodal_vel(:, :, i);
+    nodal_acc(:, :, i+1) = nodal_acc(:, :, i);
+    iterat_count = 1;
+    ini_internal_force = internal_force;
+    % Force and energy convergence criterion
+    conv_crit_one = norm(eff_force - global_mass_bc*nodal_acc(:,:,i+1)) > 10^(-4)*norm(load_bc(:, :, i) - ini_internal_force - global_mass_bc*nodal_acc(:,:,i));
+    conv_crit_two = (delta_U'*(eff_force - global_mass_bc*nodal_acc(:,:,i+1)))/(delta_U_ini'*(load_bc(:, :, i) - ini_internal_force - global_mass_bc*nodal_acc(:,:,i))) > 10^(-3);
+    disp([num2str(conv_crit_one), num2str(conv_crit_two)]);
+    while(conv_crit_one || conv_crit_two)
         tic
+        ['Iteration count:    ', num2str(iterat_count), '     and Residual force is:     ', num2str(norm(eff_force))]
+        iterat_count = iterat_count + 1;
+        disp('Applying newmark''s method to solve equillibrium equation...');
+        [displacement, vel, acc, delta_U] = apply_newmarks(global_mass_bc, eff_force, nodal_disp, nodal_vel, nodal_acc, time_step, i, da, eff_stiff);
+        toc
+        disp('Done!');
+        if(delta_U_ini == 0)
+            delta_U_ini = delta_U;
+        end
+        nodal_disp(:, :, i+1) = displacement;
+        nodal_vel(:, :, i+1) = vel;
+        nodal_acc(:, :, i+1) = acc;
+        % Calculate the stresses and strain.
+        % Finding out stress and strain values for each element
+        disp('Calculating element stresses and strains...');
         count = 0;
         overall_disp_now(non_boundary_indices) = delta_U;
         for ii = 1:no_elements
@@ -234,7 +261,9 @@ for i = 1:length(force_time_history)
             if(total_max_strain(ii) > conc_yield_strain && element_type_steel(ii) == 0)
                 element_mod_of_elas(ii) = conc_Et;
                 count = count + 1;
+                yielding_order(ii, i) = iterat_count;
             elseif(total_max_strain(ii) > steel_yield_strain && element_type_steel(ii) == 1)
+                yielding_order(ii, i) = iterat_count;
                 element_mod_of_elas(ii) = steel_Et;
                 count = count + 1;
             end
@@ -243,12 +272,9 @@ for i = 1:length(force_time_history)
         toc
         disp('Done!');
         fprintf('Number of elements that went into non-linear state in this iteration: %d\n', count);
-%         if(count == 0)
-%             break;
-%         end
-        global_stiff = getGlobalStiff(nodal_coordinate, nodal_connect, element_mod_of_elas);
-        global_stiff_bc = boundary_conditions(condition, global_stiff, mesh_meta_data, load_vec_time_history, global_mass);
-        eff_stiff = global_stiff_bc + a(1)*global_mass_bc;
+%         global_stiff = getGlobalStiff(nodal_coordinate, nodal_connect, element_mod_of_elas);
+%         global_stiff_bc = boundary_conditions(condition, global_stiff, mesh_meta_data, load_vec_time_history, global_mass);
+%         eff_stiff = global_stiff_bc + a(1)*global_mass_bc;
         % The created effective stiffness matrix should be close to symmetric. Make 
         % it symmetric and handle the exception case.
         if(max(max(abs(eff_stiff - eff_stiff.'))) < 1e-5)
@@ -257,25 +283,28 @@ for i = 1:length(force_time_history)
             disp('Variations in effective stiffness matrix calculation crossed acceptable error. Aborting...');
             return;
         end
-        da = decomposition(eff_stiff);
-        % Using stress compute internal force.
-        
-        residual_force = load_bc(:, :, i) - internal_force;
+        internal_force = internal_force + global_stiff_bc * delta_U;
+        eff_force = load_bc(:, :, i) - internal_force;
+        conv_crit_one = norm(eff_force - global_mass_bc*nodal_acc(:,:,i+1)) > 10^(-4)*norm(load_bc(:, :, i) - ini_internal_force - global_mass_bc*nodal_acc(:,:,i));
+        conv_crit_two = (delta_U'*(eff_force - global_mass_bc*nodal_acc(:,:,i+1)))/(delta_U_ini'*(load_bc(:, :, i) - ini_internal_force - global_mass_bc*nodal_acc(:,:,i))) > 10^(-3);
+        toc
     end
-    internal_force = zeros(length(global_mass_bc), 1); %Resetting the internal forces so that 
 end
 close(h);
 toc
+diary off
 %% Plot
-max_displ = [];
+end_displ = [];
+end_force = [];
 for i = 1:length(force_time_history)
-    max_displ(end+1) = (nodal_disp(147598, :, i));
+    end_force(end+1) = load_bc(end-2, :, i);
+    end_displ(end+1) = (nodal_disp(end-2, :, i));
 end
-max_text = ['\leftarrow Max displacement = ',num2str((max(max_displ)/height)*100), '% of the wall height.'];
+max_text = ['\leftarrow Max displacement = ',num2str((max(end_displ)/height)*100), '% of the wall height.'];
 max_index = find(max_displ == max(max_displ));
 figure;
-plot(P(:,1), max_displ, 'LineWidth', 1.9);
-text(P(max_index, 1), max_displ(max_index), max_text, 'FontSize', 12, 'FontWeight', 'bold');
+plot(P(:,1), end_displ, 'LineWidth', 1.9);
+text(P(max_index, 1), end_displ(max_index), max_text, 'FontSize', 12, 'FontWeight', 'bold');
 xlabel('Time (sec)', 'FontSize', 12, 'FontWeight', 'bold');
 ylabel('Displacement (mm)', 'FontSize', 12, 'FontWeight', 'bold');
 title('Displacement time history in x-direction for Elcentro GM(Applied in x-direction) - Last Node');
@@ -335,7 +364,7 @@ title('Max displacement at each level');
 % To find out overall displacement including the removed boundary points
 final_disp = zeros(total_dof, 1);
 % Setting boundary point displacement to be zero
-final_disp(boundary_pt_index) = 0; 
+final_disp(boundary_pt_indices) = 0; 
 final_disp(non_boundary_indices) = nodal_disp(:, :, end);
 nodal_delta_x = final_disp(1:3:length(final_disp));
 nodal_delta_y = final_disp(2:3:length(final_disp));
@@ -361,3 +390,46 @@ colorbar;
 figure;
 surf(distinct_y, distinct_z, displ_mesh);
 colorbar;
+%% Force-displacement curve
+end_displ = [];
+end_force = [];
+for i = 1:length(force_time_history)
+    end_force(end+1) = load_bc(1, :, i);
+    end_displ(end+1) = (nodal_disp(1, :, i));
+end
+plot(end_displ, end_force);
+%%
+h = draw3DMesh(nodal_coordinate, faces);
+filename = ['../Logs/[',datestr(datetime, 'dd-mmm-yyyy, HH.MM AM'), ']ResponseAnimatedNonLinear.gif'];
+%%
+animation_frames(length(force_time_history)) = struct('cdata',[],'colormap',[]);
+for i = 1:length(force_time_history)
+    % To find out overall displacement including the removed boundary points
+    final_disp = zeros(total_dof, 1);
+    % Setting boundary point displacement to be zero
+    final_disp(boundary_pt_indices) = 0; 
+    final_disp(non_boundary_indices) = nodal_disp(:, :, i);
+    nodal_delta_x = final_disp(1:3:length(final_disp));
+    nodal_delta_y = final_disp(2:3:length(final_disp));
+    nodal_delta_z = final_disp(3:3:length(final_disp));
+    % Here multiplying by a factor just to visualize the deformation.
+    new_nodal_coord = 50*[nodal_delta_x nodal_delta_y nodal_delta_z] + nodal_coordinate;
+%     draw3DMesh(new_nodal_coord, faces);
+    set(h, 'Vertices',new_nodal_coord);
+    drawnow limitrate;
+          % Capture the plot as an image 
+    animation_frames(i) = getframe(gca);
+    frame = getframe(gca); 
+    im = frame2im(frame); 
+    [imind,cm] = rgb2ind(im,256); 
+
+    % Write to the GIF File 
+    if i == 1 
+      imwrite(imind,cm,filename,'gif', 'Loopcount', 0, 'Delay', 0.1); 
+    else 
+      imwrite(imind,cm,filename,'gif','WriteMode','append'); 
+    end
+end
+
+%% Save workspace. Takes about 3GB space
+save(['../Logs/[NonLinear_Dynamic',datestr(datetime, 'dd-mmm-yyyy, HH.MM AM'), ']Workspace_Variables.txt']);
