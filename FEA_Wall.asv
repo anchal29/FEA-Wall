@@ -64,7 +64,6 @@ else
     conc_yield_strain = 0.002;
 end
 conc_E = 5000 * sqrt(conc_grade);
-steel_E = conc_E; % @TODO Comment it later
 steel_Et = steel_E / 5;
 conc_Et = conc_E / 10;
 steel_yield_strain = steel_grade / steel_E;
@@ -112,7 +111,6 @@ element_mapping = ElementMapping(nodal_connect, no_elements);
 
 conc_den = 2.49*10^(-9); % In Mg/mm^3
 steel_den = 8.05*10^(-9);
-steel_den = conc_den; % @TODO Comment it later
 g = 9.81*1000; % In mm/s^2
 
 % load_vec = [density*g; 0; 0];
@@ -168,18 +166,6 @@ non_boundary_indices = setdiff(all_indices, boundary_pt_index);
 toc;
 disp('Done!');
 
-%% Rayleigh damping matrix calculation
-zeta = 0.05;
-smallest_eig_value = eigs(global_stiff_bc, global_mass_bc, 1, 'smallestabs');
-ten_low_eig_val = eigs(global_stiff_bc, global_mass_bc, 10, 'smallestabs');
-larg_eig_value = eigs(global_stiff_bc, global_mass_bc, 1, 'largestabs');
-omega_low = sqrt(smallest_eig_value);
-omega_high = sqrt(larg_eig_value);
-beta = 2*zeta/(omega_low + omega_high);
-alpha = omega_low*omega_high*beta;
-global_damp_bc = alpha*global_mass_bc + beta*global_stiff_bc;
-
-
 %% Initialization for applying newmarks's method
 total_dof = length(global_stiff_bc);
 nodal_disp = zeros(total_dof, 1, length(force_time_history));
@@ -201,7 +187,7 @@ a = [1/(alpha*(time_step)^2);
      delta*time_step;
 ];
 % Damping matrix is zero otherwise add a damping matrix term here.
-eff_stiff = global_stiff_bc + a(1)*global_mass_bc + a(2)*global_damp_bc;
+eff_stiff = global_stiff_bc + a(1)*global_mass_bc;
 % The created effective stiffness matrix should be close to symmetric. Make 
 % it symmetric and handle the exception case.
 if(max(max(abs(eff_stiff - eff_stiff.'))) < 1e-5)
@@ -212,10 +198,18 @@ else
 end
 da = decomposition(eff_stiff);
 toc
+%% Rayleigh damping matrix calculation
+zeta = 0.05;
+smallest_eig_value = eigs(global_stiff_bc, global_mass_bc, 1, 'smallestabs');
+larg_eig_value = eigs(global_stiff_bc, global_mass_bc, 1, 'largestabs');
+omega_low = sqrt(smallest_eig_value)/(2*pi);
+omega_high = sqrt(larg_eig_value)/(2*pi);
+beta = 2*zeta/(omega_low + omega2)
+Alpha = omega1 x omega2 x Beta
 
 tic
 % Comment it later
-% return
+return
 %% Solution
 %*********************************************************************
 % Above calculated informations are not needed to be calculated again.
@@ -223,7 +217,7 @@ tic
 h = waitbar(0,'Linear dynamic analysis going on...');
 for i = 1:length(force_time_history)
     waitbar(i/length(force_time_history));
-    [nodal_disp, nodal_vel, nodal_acc] = apply_newmarks(eff_stiff, global_mass_bc, load_bc(:, :, i), nodal_disp, nodal_vel, nodal_acc, time_step, i, da, global_damp_bc);
+    [nodal_disp, nodal_vel, nodal_acc] = apply_newmarks(eff_stiff, global_mass_bc, load_bc(:, :, i), nodal_disp, nodal_vel, nodal_acc, time_step, i, da);
 end
 close(h);
 toc

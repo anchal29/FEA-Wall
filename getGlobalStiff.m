@@ -1,4 +1,4 @@
-function global_stiff = getGlobalStiff(nodal_coordinate, nodal_connect, element_mod_of_elas)
+function global_stiff = getGlobalStiff(nodal_coordinate, nodal_connect, element_mod_of_elas, element_pois_ratio)
 %**************************************************************************
 % Complete subroutine to get global stiffness matrix.
 %**************************************************************************
@@ -14,7 +14,7 @@ stiff = zeros(1, 24*24, length(distinct_elements));
 for ii = 1:length(distinct_elements)
     temp = nodal_coordinate(nodal_connect(distinct_elements(ii),:).', :);
 %     temp = {temp(:).'};
-    ele_stiff = getElementStiffness(temp, element_mod_of_elas(distinct_elements(ii)));
+    ele_stiff = getElementStiffness(temp, element_mod_of_elas(distinct_elements(ii)), element_pois_ratio(distinct_elements(ii)));
 %     [ele_stiff, shape_function_matrix] = octa_element_stiff(element_mod_of_elas(distinct_elements(i)), nodal_coordinate(nodal_connect(distinct_elements(i),:).', :));
     stiff(:, :, ii) = ele_stiff(:).';
 end

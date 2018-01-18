@@ -26,7 +26,7 @@ disp('Preprocessing');
 zeta_at_nodes = [-1, 1, 1, -1, -1, 1, 1, -1];
 eta_at_nodes = [-1, -1, 1, 1, -1, -1, 1, 1];
 nu_at_nodes = [-1, -1, -1, -1, 1, 1, 1, 1];
-syms zeta eta nu mod_of_elas;
+syms zeta eta nu mod_of_elas pois_ratio;
 element_nodal_coordinates = sym('nodal_coordinates', [8, 3]);
 %% Shape Function
 for i = 1:8
@@ -66,7 +66,6 @@ for i = 1 : 8
         ];
 end
 %
-pois_ratio = 1/3;
 a = mod_of_elas * (1-pois_ratio) / ((1- 2 * pois_ratio) * (1 + pois_ratio));
 b = mod_of_elas * pois_ratio / ((1- 2 * pois_ratio) * (1 + pois_ratio));
 G = mod_of_elas / (2 * (1 + pois_ratio));
@@ -100,7 +99,7 @@ disp('Done!!');
 disp('Now forming the complete matlabFunction for getting stiffness matrix directly');
 
 tic
-matlabFunction(stiff, 'File', 'getElementStiffness', 'Optimize' ,false, 'vars', {[element_nodal_coordinates], 'mod_of_elas'});
+matlabFunction(stiff, 'File', 'getElementStiffness', 'Optimize' ,false, 'vars', {[element_nodal_coordinates], 'mod_of_elas', 'pois_ratio'});
 toc
 disp('Done!!');
 tic

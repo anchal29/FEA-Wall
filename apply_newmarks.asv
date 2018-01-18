@@ -36,7 +36,7 @@ a = [1/(alpha*(time_step)^2);
      delta*time_step;
 ];
 
-eff_load = force_vec + global_mass*(a(1)*nodal_disp(:, :, time_index)+a(3)*nodal_vel(:, :, time_index)+a(4)*nodal_acc(:, :, time_index)) + global_damp_bc*(a(2)*nodal_disp(:, :, time_index)+a(5)*nodal_vel(:, :, time_index)+a(6)*nodal_acc(:, :, time_index));
+eff_load = force_vec + global_mass*(a(1)*nodal_disp(:, :, time_index)+a(3)*nodal_vel(:, :, time_index)+a(4)*nodal_acc(:, :, time_index));
 % toc
 % disp('Done!');
 % disp('Solving equillibrium equation....');
