@@ -5,14 +5,18 @@
 % Using hexahedron element Finite Element Analysis of a Wall.
 % Working and tested on MATLAB R2017b
 % Dependancy: Neural Network Toolbox.
-
 clear variables;
 clear global;
 clc;
 mkdir('../Logs');
-diary(['../Logs/[',datestr(datetime, 'dd-mmm-yyyy, HH.MM AM'), ']Code_LogsLinearDynamic.txt'])
+folder_name = ['[',datestr(datetime, 'dd-mmm-yyyy, HH.MM AM'), '] Logs'];
+mkdir(['../Logs/',folder_name,'/']);
+diary(['../Logs/',folder_name,'/Code_LogsLinearDynamic.txt'])
 
 %% Input
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%      INPUT/INIT SECTION      %%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 choice = 0;
 while(~(choice == 1 || choice == 2))
     choice = input('[1]. Provide new input values including wall dimensions and loads, or\n[2]. Use default values\nChoose [1/2]:    ');
@@ -51,28 +55,46 @@ else
     thickness = 200;
     steel_E = 2 * 10^5;
     pois_ratio = .3;
-    bar_dia = 10; % 12mm diameter bars
+    bar_dia = 12; % 12mm diameter bars
     condition = 'one_fixed';
     vertical_spacing = 250; % 250 mm spacing of verticle reinforcement.
     horz_spacing = 300; % 300 mm spacing of horizontal reinforcement.
-    vertical_dia = 10; % 6mm bars used for verticle reinforcement.
-    horz_dia = 10;
+    vertical_dia = 12; % 6mm bars used for verticle reinforcement.
+    horz_dia = 12;
     conc_grade = 25;
     steel_grade = 415;
     conc_pois_ratio = 0.18;
-    steel_pois_ratio = 0.3;
+    steel_pois_ratio = 0.3; % @TODO Change it to 0.3
     conc_yield_strain = 0.002;
+    face_num = 6;
+    conc_den = 2.49*10^(-9); % In Mg/mm^3
+    steel_den = 8.05*10^(-9);
+    g = 9.81*1000; % In mm/s^4
 end
 conc_E = 5000 * sqrt(conc_grade);
-steel_E = conc_E; % @TODO Comment it later
 steel_Et = steel_E / 5;
 conc_Et = conc_E / 10;
 steel_yield_strain = steel_grade / steel_E;
+% Load vec must be in N, mm units.
+% density = 2.5*10^(-6); % It is in kg/mm^3
+% conc_den = 2.5*10^(-6);
+% steel_den = 8.05*10^(-6);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%% Change steel to concrete %%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Just to test concrete alone.
+% steel_den = conc_den;
+% steel_E = conc_E;
+% steel_Et = conc_Et;
+% steel_yield_strain = conc_yield_strain;
+% steel_pois_ratio = conc_pois_ratio;
+%%%% UPTO HERE ONLY
 
 % Dimensions matrix is in mm so to avoid float values.
 dimension = [thickness, width, height];
 
-%% Naive assumptions
+%%% Naive assumptions
 % It seems that 15 divisions across y and z direction are enough. So
 % creating the divisions accordingly.
 div_y = 15;
@@ -84,52 +106,73 @@ horz_side_cover = 75;
 reinforcment_info = [vertical_dia, vertical_spacing, vert_side_cover;
                      horz_dia    , horz_spacing    , horz_side_cover];
 
+%% Print Input
+fprintf('Wall dimesnsions:\n\tHeight: %d,\tWidth: %d,\tThickness: %d.\n', height, width, thickness);
+fprintf('Concrete properties:\n\tGrade: %d,\n\tPoisson''s ratio: %0.2f,\n\tDensity: %0.3e,\n\tYield stress: %0.3e,\n\tYield Strain: %0.3e\n',conc_grade, conc_pois_ratio, conc_den, conc_E, conc_yield_strain);
+fprintf('Steel properties:\n\tGrade: %d,\n\tPoisson''s ratio: %0.2f,\n\tDensity: %0.3e,\n\tYield stress: %0.3e,\n\tYield Strain: %0.3e\n',steel_grade, steel_pois_ratio, steel_den, steel_E, steel_yield_strain);
+fprintf('Boundary condition: %s\n', condition);
+fprintf('Verticle Bar specs:\n\tDiameter: %0.2f,\tSpacing: %0.2f,\t Side Cover: %0.2f.\n', vertical_dia, vertical_spacing, vert_side_cover);
+fprintf('Horizontal Bar specs:\n\tDiameter: %0.2f,\tSpacing: %0.2f,\t Side Cover: %0.2f.\n', horz_dia, horz_spacing, horz_side_cover);
+
 %% Create mesh
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%        MESH CREATION        %%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 disp('Creating Mesh...');
 [nodal_connect, nodal_coordinate, faces, mesh_meta_data, bar_position] = createMesh(dimension, divisions, reinforcment_info);
 disp('Done!');
 
+
 %% Draw the mesh
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%        MESH 3D PLOT        %%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 disp('Plotting Mesh...');
 draw3DMesh(nodal_coordinate, faces);
 disp('Done!');
 
+
 %% Get element type
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%          ASSIGN ELEMENTS TYPES          %%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 disp('Getting each element type...');
 element_type_steel = getElementType(nodal_coordinate, nodal_connect, bar_position, thickness);
 disp('Done!');
+
 %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%             HELPER INIT             %%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Total number of elements will be equal to the the size of the
 % nodal_coordinate matrix.
 no_elements = length(nodal_connect);
-
 total_no_nodes = length(nodal_coordinate);
 element_mapping = ElementMapping(nodal_connect, no_elements);
-% Load vec must be in N, mm units.
-% density = 2.5*10^(-6); % It is in kg/mm^3
-% conc_den = 2.5*10^(-6);
-% steel_den = 8.05*10^(-6);
-
-conc_den = 2.49*10^(-9); % In Mg/mm^3
-steel_den = 8.05*10^(-9);
-steel_den = conc_den; % @TODO Comment it later
-g = 9.81*1000; % In mm/s^2
-
-% load_vec = [density*g; 0; 0];
-% force_type = 'body';
-% tic
-% nodal_force = getNodalForce(force_type, no_elements, load_vec);
-% toc
-% tic
-% global_force = global_force_vector(nodal_coordinate, nodal_connect, nodal_force, element_mapping);
-% toc
 % Initialize the E vector for each element with elastic modulus of
 % elasticity.
 element_mod_of_elas = steel_E.*element_type_steel(1:no_elements) + conc_E.*(~element_type_steel(1:no_elements));
 element_pois_ratio = steel_pois_ratio.*element_type_steel(1:no_elements) + conc_pois_ratio.*(~element_type_steel(1:no_elements));
 
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%            PERCENTAGE OF STEEL          %%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+total_steel_vol = 0;
+for i = 1:no_elements
+    if element_type_steel(i)
+        dx = nodal_coordinate(nodal_connect(i, 2), 1) - nodal_coordinate(nodal_connect(i, 1), 1);
+        dy = nodal_coordinate(nodal_connect(i, 3), 2) - nodal_coordinate(nodal_connect(i, 2), 2);
+        dz = nodal_coordinate(nodal_connect(i, 5), 3) - nodal_coordinate(nodal_connect(i, 1), 3);
+        total_steel_vol = total_steel_vol + dx*dy*dz;
+    end
+end
+total_vol = width*height*thickness;
+fprintf('Percentage of steel: %0.6f\n', total_steel_vol/total_vol*100);
 %% Mass matrix calculation
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%          MASS MATRIX CALCULATION          %%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 tic
 % density = 1;
 density =  steel_den.*element_type_steel(1:no_elements) + conc_den.*(~element_type_steel(1:no_elements));
@@ -142,24 +185,73 @@ else
     disp('Variations in mass matrix calculation crossed acceptable error. Aborting...');
     return;
 end
-%%
+
+
+%% Initial Stiffness matrix calculation
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%      INITIAL STIFFNESS MATRIX      %%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Since this is static analysis thus the global stiffness matrix will not
 % vary as per time. Calculate stiffness matrix once.
 global_stiff = getGlobalStiff(nodal_coordinate, nodal_connect, element_mod_of_elas, element_pois_ratio);
 
-disp('Assembling force from earthquake ground motion...');
-tic
-P = load('Elcentro.txt');
-P(:, 2) = (P(:,2)*g);
-force_time_history = P(:,2);
-dummy = repmat([1; 0; 0], total_no_nodes, 1);
-mass_col = global_mass*dummy;
-for i = 1:length(P)
-    load_vec_time_history(:, :, i) = force_time_history(i)*mass_col;
-end
-time_step = 0.02;
-toc
 
+%% Force application
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%        EXTERNAL FORCES       %%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+disp('Assembling force...');
+tic
+%% EARTHQUAKE FORCE SECTION
+force_type = 'IMP';
+if strcmp(force_type, 'EQ')
+    EQ_name = 'Elcentro.txt';
+    disp(['Using ', EQ_name]);
+    P = load(EQ_name);
+    P(:, 2) = (P(:,2)*g);
+    time_vec = P(:, 1);
+    force_time_history = P(:,2);
+    num_time_steps = length(force_time_history);
+    dummy = repmat([1; 0; 0], total_no_nodes, 1);
+    mass_col = global_mass*dummy;
+    for i = 1:length(P)
+        load_vec_time_history(:, :, i) = force_time_history(i)*mass_col;
+    end
+    time_step = 0.02;
+    toc
+elseif strcmp(force_type, 'IMP') % Stands for impulsive surface pressure load
+    %%
+    pressure_time_history = [     0, 0.01691;% Time in sec.
+                             0.1724,       0;]; % Pressure pulse for 125kg TNT kept at 20m.
+    points = 100;
+    temp = repmat([0.01691; 0], 1, points);
+    for i = 1:points
+        temp(1, i) = temp(1, i)*(i+1);
+    end
+    pressure_time_history = [pressure_time_history temp];
+    time_vec = pressure_time_history(1, :);
+    plot(pressure_time_history(1, :), pressure_time_history(2, :), 'LineWidth', 1.9);
+    [face_indices, face_area] = getFaceIndices(mesh_meta_data, face_num, dimension);
+    num_time_steps = length(pressure_time_history(1, :));
+    time_step = pressure_time_history(1, 2) - pressure_time_history(1, 1); % Assuming constant time step for now.
+    load_vec = zeros(total_no_nodes*3, 1, num_time_steps);
+    for ii = 1:num_time_steps
+        net_force = face_area*pressure_time_history(2, ii);
+        load_vec(face_indices(1, :), :, ii) = net_force/length(face_indices(1, :));
+    end
+    load_vec_time_history = load_vec;
+    %%
+end
+% load_vec = [density*g; 0; 0];
+% force_type = 'body';
+% tic
+% nodal_force = getNodalForce(force_type, no_elements, load_vec);
+% toc
+% tic
+% global_force = global_force_vector(nodal_coordinate, nodal_connect, nodal_force, element_mapping);
+% toc
+
+%%
 disp('Applying boundary conditions...');
 tic
 [global_stiff_bc, load_bc, global_mass_bc, boundary_pt_index] = boundary_conditions(condition, global_stiff, mesh_meta_data, load_vec_time_history, global_mass);
@@ -169,23 +261,34 @@ toc;
 disp('Done!');
 
 %% Rayleigh damping matrix calculation
+disp('Damping matrix calculations...');
+tic
 zeta = 0.05;
-smallest_eig_value = eigs(global_stiff_bc, global_mass_bc, 1, 'smallestabs');
-ten_low_eig_val = eigs(global_stiff_bc, global_mass_bc, 10, 'smallestabs');
-larg_eig_value = eigs(global_stiff_bc, global_mass_bc, 1, 'largestabs');
-omega_low = sqrt(smallest_eig_value);
-omega_high = sqrt(larg_eig_value);
+% smallest_eig_value = eigs(global_stiff_bc, global_mass_bc, 1, 'smallestabs');
+% ten_low_eig_val = eigs(global_stiff_bc, global_mass_bc, 10, 'smallestabs');
+% larg_eig_value = eigs(global_stiff_bc, global_mass_bc, 1, 'largestabs');
+% omega_low = sqrt(smallest_eig_value);
+% omega_high = sqrt(larg_eig_value);
+omega_low = 78.1175;
+omega_high = 1.2261e+06;
+% Above mentioned values are calculated for wall - [200 5000 3000]
 beta = 2*zeta/(omega_low + omega_high);
 alpha = omega_low*omega_high*beta;
 global_damp_bc = alpha*global_mass_bc + beta*global_stiff_bc;
-
+toc
+disp('Done!');
 
 %% Initialization for applying newmarks's method
+disp('Initialization for applying newmarks''s method...');
 total_dof = length(global_stiff_bc);
-nodal_disp = zeros(total_dof, 1, length(force_time_history));
-nodal_vel = zeros(total_dof, 1, length(force_time_history));
-nodal_acc = zeros(total_dof, 1, length(force_time_history));
-nodal_acc(:, :, 1) = P(1, 2)*repmat([1; 0; 0], total_dof/3, 1);
+nodal_disp = zeros(total_dof, 1, num_time_steps);
+nodal_vel = zeros(total_dof, 1, num_time_steps);
+nodal_acc = zeros(total_dof, 1, num_time_steps);
+if strcmp(force_type, 'EQ')
+    nodal_acc(:, :, 1) = P(1, 2)*repmat([1; 0; 0], total_dof/3, 1);
+elseif strcmp(force_type, 'IMP')
+    nodal_acc(:, :, 1) = global_mass_bc\load_bc(:, :, 1);
+end
 disp('Newmarks method preprocessing:');
 tic
 alpha = 0.25;
@@ -200,7 +303,7 @@ a = [1/(alpha*(time_step)^2);
      (time_step*(1 - delta));
      delta*time_step;
 ];
-% Damping matrix is zero otherwise add a damping matrix term here.
+% Damping matrix is zero otherwise add a damping matrix term here.[ADDED]
 eff_stiff = global_stiff_bc + a(1)*global_mass_bc + a(2)*global_damp_bc;
 % The created effective stiffness matrix should be close to symmetric. Make 
 % it symmetric and handle the exception case.
@@ -212,44 +315,44 @@ else
 end
 da = decomposition(eff_stiff);
 toc
+disp('Done!');
 
 tic
-% Comment it later
-% return
 %% Solution
 %*********************************************************************
 % Above calculated informations are not needed to be calculated again.
 %*********************************************************************
 h = waitbar(0,'Linear dynamic analysis going on...');
-for i = 1:length(force_time_history)
-    waitbar(i/length(force_time_history));
+for i = 1:num_time_steps
+    waitbar(i/num_time_steps);
     [nodal_disp, nodal_vel, nodal_acc] = apply_newmarks(eff_stiff, global_mass_bc, load_bc(:, :, i), nodal_disp, nodal_vel, nodal_acc, time_step, i, da, global_damp_bc);
 end
 close(h);
 toc
 %% Plot
 max_displ = [];
-for i = 1:length(force_time_history)
+for i = 1:num_time_steps
     max_displ(end+1) = (nodal_disp(end-2, :, i));
 end
 max_text = ['\leftarrow Max displacement = ',num2str((max(max_displ)/height)*100), '% of the wall height.'];
 max_index = find(max_displ == max(max_displ));
 figure;
-plot(P(:,1), max_displ, 'LineWidth', 1.9);
-text(P(max_index, 1), max_displ(max_index), max_text, 'FontSize', 12, 'FontWeight', 'bold');
+plot(time_vec, max_displ, 'LineWidth', 1.9);
+text(time_vec(max_index), max_displ(max_index), max_text, 'FontSize', 12, 'FontWeight', 'bold');
 xlabel('Time (sec)', 'FontSize', 12, 'FontWeight', 'bold');
 ylabel('Displacement (mm)', 'FontSize', 12, 'FontWeight', 'bold');
 title('Displacement time history in x-direction for Elcentro GM(Applied in x-direction) - Last Node');
+savefig(['../Logs/',folder_name,'/Displ time history of top node.fig']);
 %% Plot
 max_now = 0;
 for j = 1:3:length(nodal_disp(:, :, 1))
     if(max_now <= max(abs(nodal_disp(j, :, i))))
         max_now = max(abs(nodal_disp(j, :, i)));
 %         max_displ_new = [];
-%         for i = 1:length(force_time_history)
+%         for i = 1:num_time_steps
 %             max_displ_new(end+1) = nodal_disp(j, :, i);
 %         end
-%         plot(0:length(force_time_history)-1, max_displ_new);
+%         plot(0:num_time_steps-1, max_displ_new);
 %         hold on;
         max_index = j;
     end
@@ -270,7 +373,7 @@ max_disp_each_time_step = [];
 for ii = 1:mesh_meta_data(3)
     max_displ = [];
     max_acc = [];
-    for i = 1:length(force_time_history)
+    for i = 1:num_time_steps+1
         max_displ(end+1) = (nodal_disp(first_points(ii), :, i));
         max_acc(end+1) = (nodal_acc(first_points(ii), :, i));
     end
@@ -286,18 +389,19 @@ plot(distinct_dz_coordinates, max_acc_each_time_step/9.8/1000, '-p', 'MarkerEdge
 xlabel('Height (mm)', 'FontSize', 12, 'FontWeight', 'bold');
 ylabel('Acceleration (g)', 'FontSize', 12, 'FontWeight', 'bold');
 title('Max acceleration at each level');
-
+savefig(['../Logs/',folder_name,'/Max acc at level.fig']);
 figure;
 plot(distinct_dz_coordinates, max_disp_each_time_step, '-s', 'MarkerEdgeColor', 'red', 'MarkerFaceColor', 'white', 'LineWidth', 1.5);
 xlabel('Height (mm)', 'FontSize', 12, 'FontWeight', 'bold');
 ylabel('Displacement (mm)', 'FontSize', 12, 'FontWeight', 'bold');
 title('Max displacement at each level');
+savefig(['../Logs/',folder_name,'/Max disp at level.fig']);
 %%
 h = draw3DMesh(nodal_coordinate, faces);
-filename = ['../Logs/[',datestr(datetime, 'dd-mmm-yyyy, HH.MM AM'), ']ResponseAnimatedLinear.gif'];
-%%
-animation_frames(length(force_time_history)) = struct('cdata',[],'colormap',[]);
-for i = 1:length(force_time_history)
+filename = ['../Logs/',folder_name,'/ResponseAnimatedLinear.gif'];
+
+animation_frames(num_time_steps) = struct('cdata',[],'colormap',[]);
+for i = 1:num_time_steps+1
     % To find out overall displacement including the removed boundary points
     final_disp = zeros(total_dof, 1);
     % Setting boundary point displacement to be zero
@@ -306,11 +410,16 @@ for i = 1:length(force_time_history)
     nodal_delta_x = final_disp(1:3:length(final_disp));
     nodal_delta_y = final_disp(2:3:length(final_disp));
     nodal_delta_z = final_disp(3:3:length(final_disp));
-    % Here multiplying by a factor just to visualize the deformation.
-    new_nodal_coord = 50*[nodal_delta_x nodal_delta_y nodal_delta_z] + nodal_coordinate;
+    % Here multiplying by a factor just to visualize the deformation[Fixed]
+    new_nodal_coord = [nodal_delta_x nodal_delta_y nodal_delta_z] + nodal_coordinate;
 %     draw3DMesh(new_nodal_coord, faces);
     set(h, 'Vertices',new_nodal_coord);
-    drawnow limitrate;
+    if strcmp(force_type, 'EQ')
+        drawnow limitrate;
+    elseif strcmp(force_type, 'IMP')
+        drawnow; % Use for Impulsive loads as then we will have lesser frame
+%     rate.
+    end
           % Capture the plot as an image 
     animation_frames(i) = getframe(gca);
     frame = getframe(gca); 
@@ -327,7 +436,10 @@ end
 %%
 counter_1 = 1;
 displ_mesh = zeros(mesh_meta_data(3)+1, mesh_meta_data(2)+1);
-
+final_disp = zeros(total_dof, 1);
+% Setting boundary point displacement to be zero
+final_disp(boundary_pt_index) = 0; 
+final_disp(non_boundary_indices) = nodal_disp(:, :, end);
 for ii = 1:mesh_meta_data(3)+ 1
     for jj = 1:mesh_meta_data(2)+1
         displ_mesh(ii, jj) = final_disp(counter_1);
@@ -340,27 +452,43 @@ distinct_y = unique(nodal_coordinate(:, 2), 'rows');
 figure;
 contourf(distinct_y, distinct_z, displ_mesh);
 colorbar;
+savefig(['../Logs/',folder_name,'/2D displacement contour.fig']);
 figure;
 surf(distinct_y, distinct_z, displ_mesh);
 colorbar;
+savefig(['../Logs/',folder_name,'/3D displacement contour.fig']);
 %%
-clear global_stiff_bc global_stiff global_mass global_mass_bc da eff_stiff
+% clear global_stiff_bc global_stiff global_mass global_mass_bc da eff_stiff
 diary off;
-save(['../Logs/[Linear_Dynamic',datestr(datetime, 'dd-mmm-yyyy, HH.MM AM'), ']Workspace_Variables.mat']);
+% save(['../Logs/',folder_name,'/Workspace_Variables.mat']);
 
+
+%%
+% To find out overall displacement including the removed boundary points
+final_disp = zeros(total_dof, 1);
+% Setting boundary point displacement to be zero
+final_disp(boundary_pt_index) = 0; 
+final_disp(non_boundary_indices) = nodal_disp(:, :, end);
+nodal_delta_x = final_disp(1:3:length(final_disp));
+nodal_delta_y = final_disp(2:3:length(final_disp));
+nodal_delta_z = final_disp(3:3:length(final_disp));
+% Here multiplying by a factor just to visualize the deformation.
+new_nodal_coord = 401*[nodal_delta_x nodal_delta_y nodal_delta_z] + nodal_coordinate;
+draw3DMesh(new_nodal_coord, faces);
+savefig(['../Logs/',folder_name,'/Fianl deflected 3D mesh.fig']);
 %% Force-displacement curve
-end_displ = [];
-end_force = [];
-till_index = 5;
-% for i = 1:length(force_time_history)
-for i = 1:till_index
-    inertial_force = global_mass_bc*nodal_acc(:, :, i);
-    temp = load_bc(:, :, i) - inertial_force;
-    end_force(end+1) = (temp(1));
-    end_displ(end+1) = sum(nodal_disp(1:3:end, :, i));
-%     end_displ(end+1) = max(nodal_disp(:, :, i));
-end
-scatter(end_displ, end_force);
+% end_displ = [];
+% end_force = [];
+% till_index = 5;
+% % for i = 1:length(force_time_history)
+% for i = 1:till_index
+%     inertial_force = global_mass_bc*nodal_acc(:, :, i);
+%     temp = load_bc(:, :, i) - inertial_force;
+%     end_force(end+1) = (temp(1));
+%     end_displ(end+1) = sum(nodal_disp(1:3:end, :, i));
+% %     end_displ(end+1) = max(nodal_disp(:, :, i));
+% end
+% scatter(end_displ, end_force);
 %% CDM
 %*********************************************************************
 % Commenting CDM as it should not work for elcentro ground motion.

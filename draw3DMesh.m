@@ -11,12 +11,14 @@ function h = draw3DMesh(nodal_coordinate, faces)
 figure;
 h = patch('Vertices',nodal_coordinate,'Faces',faces,...
     'FaceColor','c');
-set(h,'EraseMode','normal');
 axis off;
 axis equal;
 cameratoolbar('SetCoordSys','z');
 cameratoolbar('setmode','orbit');
 ax = gca;
+ax.YAxis.Visible = 'off';
+ax.ZAxis.Visible = 'off';
+ax.XLim = [-3000 3000];
 ax.CameraPosition = [-179534.00986074534 128291.59093640426 128119.23378678535];
 ax.CameraUpVector = [0.40957602214449595 -0.28678821817552286 0.8660254037844387];
 ax.CameraViewAngle = 1.4342442304781926;

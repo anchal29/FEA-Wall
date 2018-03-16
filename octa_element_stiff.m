@@ -49,7 +49,7 @@ end
 % By carefully studying the jacobian matrix we can clearly see that it is
 % going to be a diagonal matrix. It is going to happen because of symmetry.
 jacobian = diff_row*element_nodal_coordinates;
-
+det(jacobian)
 %%  Strain matrix B 
 % Starin matrix calulation.
 % strain_mat_initial contains the differentiation of shape funsiton wrt to
@@ -103,7 +103,7 @@ temp_fun = matlabFunction(pre_stiff);
 stiff = zeros(24, 24);
 for i = 1:length(weights)
     temp = gaussian_points;
-    temp_pre_stiff 	 temp_fun(temp(i, 2), temp(i, 3), temp(i, 1));
+    temp_pre_stiff = temp_fun(temp(i, 2), temp(i, 3), temp(i, 1));
     stiff = stiff + double(temp_pre_stiff);
 end
 end

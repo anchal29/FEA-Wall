@@ -1,6 +1,5 @@
 function [global_stiff, load, mass, index] =  boundary_conditions(condition, global_stiff, mesh_meta_data, load, mass)
 %**************************************************************************
-
 % This function applies the given boundary condition over load and 
 % stiffness matrices.
 %**************************************************************************
@@ -60,9 +59,9 @@ for ii = mesh_meta_data(1)+1:-1:1
     end
     for jj = mesh_meta_data(3):-1:2
         temp3 = jj*(mesh_meta_data(2)+1)*3 + temp2*(ii-1) - 3;
-        if(face_fixed(2))
-            index = [index temp3+1:temp3+3];
-        end
+            if(face_fixed(2))
+                index = [index temp3+1:temp3+3];
+            end
         temp3 = temp3 - (mesh_meta_data(2))*3;
         if(face_fixed(4))
             index = [index temp3+1:temp3+3];
