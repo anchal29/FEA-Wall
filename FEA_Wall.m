@@ -5,14 +5,17 @@
 % Using hexahedron element Finite Element Analysis of a Wall.
 % Working and tested on MATLAB R2017b
 % Dependancy: Neural Network Toolbox.
-start_dia_loop = 4;
-end_dia_loop = 16;
-total_iter = start_dia_loop - start_dia_loop + 1;
-disp_th_per_dia = [];
-for diameter_now = start_dia_loop:1:end_dia_loop
+start_damp_loop = 0;
+end_damp_loop = 0.3;
+total_iter = (end_damp_loop - start_damp_loop)*100;
+disp_th_per_damp = [];
+max_displ_vs_damp = [];
+diameter_now = 10;
+now_index = 1;
+for damp_now = start_damp_loop:0.01:end_damp_loop
 %     clear variables;
 %     clear global;
-    clearvars -except diameter_now end_dia_loop start_dia_loop total_iter max_disp_per_dia perce_steel_v disp_th_per_dia
+    clearvars -except diameter_now disp_th_per_damp damp_now end_damp_loop start_damp_loop total_iter max_displ_vs_damp now_index 
     clc;
     mkdir('../Logs');
     folder_name = ['[',datestr(datetime, 'dd-mmm-yyyy, HH.MM AM'), '] Logs'];
@@ -76,6 +79,7 @@ for diameter_now = start_dia_loop:1:end_dia_loop
         conc_den = 2.49*10^(-9); % In Mg/mm^3
         steel_den = 8.05*10^(-9);
         g = 9.81*1000; % In mm/s^4
+        damp_now = damp_now;
     end
     conc_E = 5000 * sqrt(conc_grade);
     steel_Et = steel_E / 5;
@@ -115,6 +119,7 @@ for diameter_now = start_dia_loop:1:end_dia_loop
     fprintf('Boundary condition: %s\n', condition);
     fprintf('Verticle Bar specs:\n\tDiameter: %0.2f,\tSpacing: %0.2f,\t Side Cover: %0.2f.\n', vertical_dia, vertical_spacing, vert_side_cover);
     fprintf('Horizontal Bar specs:\n\tDiameter: %0.2f,\tSpacing: %0.2f,\t Side Cover: %0.2f.\n', horz_dia, horz_spacing, horz_side_cover);
+    fprintf('Dmaping: %0.2f\n', damp_now);
 
     %% Create mesh
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -267,7 +272,7 @@ for diameter_now = start_dia_loop:1:end_dia_loop
     %% Rayleigh damping matrix calculation
     disp('Damping matrix calculations...');
     tic
-    zeta = 0.05;
+    zeta = damp_now;
     % smallest_eig_value = eigs(global_stiff_bc, global_mass_bc, 1, 'smallestabs');
     % ten_low_eig_val = eigs(global_stiff_bc, global_mass_bc, 10, 'smallestabs');
     % larg_eig_value = eigs(global_stiff_bc, global_mass_bc, 1, 'largestabs');
@@ -320,7 +325,6 @@ for diameter_now = start_dia_loop:1:end_dia_loop
     da = decomposition(eff_stiff);
     toc
     disp('Done!');
-
     tic
     %% Solution
     %*********************************************************************
@@ -338,20 +342,20 @@ for diameter_now = start_dia_loop:1:end_dia_loop
     for i = 1:num_time_steps
         max_displ(end+1) = (nodal_disp(end-2, :, i));
     end
-    disp_th_per_dia(:, :, diameter_now - start_dia_loop + 1) = max_displ;
+    disp_th_per_damp(:, :, now_index) = max_displ;
     max_text = ['\leftarrow Max displacement = ',num2str((max(max_displ)/height)*100), '% of the wall height.'];
     max_index = find(max_displ == max(max_displ));
-    max_disp_per_dia(diameter_now - start_dia_loop + 1) = max(max_displ);
-    perce_steel_v(diameter_now - start_dia_loop + 1) = percentage_steel;
+    max_displ_vs_damp(now_index) = max(max_displ);
+    damp_v(now_index) = damp_now;
     figure(19927);
-    plot(time_vec, max_displ, 'LineWidth', 1.9, 'DisplayName',['Dia', num2str(diameter_now)]);
+    plot(time_vec, max_displ, 'LineWidth', 1.9, 'DisplayName',['Damping: ', num2str(damp_now)]);
     text(time_vec(max_index), max_displ(max_index), max_text, 'FontSize', 12, 'FontWeight', 'bold');
     xlabel('Time (sec)', 'FontSize', 12, 'FontWeight', 'bold');
     ylabel('Displacement (mm)', 'FontSize', 12, 'FontWeight', 'bold');
     title('Displacement time history in x-direction for Elcentro GM(Applied in x-direction) - Last Node');
     savefig(['../Logs/',folder_name,'/Displ time history of top node.fig']);
     hold on;
-    if diameter_now == end_dia_loop
+    if damp_now == end_damp_loop
         hold off;
         legend
     end
@@ -413,43 +417,44 @@ for diameter_now = start_dia_loop:1:end_dia_loop
     savefig(['../Logs/',folder_name,'/Max disp at level.fig']);
     % @TODO Comment/Remove
     close;
-    %%
-    h = draw3DMesh(nodal_coordinate, faces);
-    filename = ['../Logs/',folder_name,'/ResponseAnimatedLinear.gif'];
-
-    animation_frames(num_time_steps) = struct('cdata',[],'colormap',[]);
-    for i = 1:num_time_steps+1
-        % To find out overall displacement including the removed boundary points
-        final_disp = zeros(total_dof, 1);
-        % Setting boundary point displacement to be zero
-        final_disp(boundary_pt_index) = 0; 
-        final_disp(non_boundary_indices) = nodal_disp(:, :, i);
-        nodal_delta_x = final_disp(1:3:length(final_disp));
-        nodal_delta_y = final_disp(2:3:length(final_disp));
-        nodal_delta_z = final_disp(3:3:length(final_disp));
-        % Here multiplying by a factor just to visualize the deformation[Fixed]
-        new_nodal_coord = [nodal_delta_x nodal_delta_y nodal_delta_z] + nodal_coordinate;
-    %     draw3DMesh(new_nodal_coord, faces);
-        set(h, 'Vertices',new_nodal_coord);
-        if strcmp(force_type, 'EQ')
-            drawnow limitrate;
-        elseif strcmp(force_type, 'IMP')
-            drawnow; % Use for Impulsive loads as then we will have lesser frame
-    %     rate.
-        end
-              % Capture the plot as an image 
-        animation_frames(i) = getframe(gca);
-        frame = getframe(gca); 
-        im = frame2im(frame); 
-        [imind,cm] = rgb2ind(im,256); 
-
-        % Write to the GIF File 
-        if i == 1 
-          imwrite(imind,cm,filename,'gif', 'Loopcount', 0, 'Delay', 0.1); 
-        else 
-          imwrite(imind,cm,filename,'gif','WriteMode','append'); 
-        end
-    end
+%     %%
+%     h = draw3DMesh(nodal_coordinate, faces);
+%     filename = ['../Logs/',folder_name,'/ResponseAnimatedLinear.gif'];
+% 
+%     animation_frames(num_time_steps) = struct('cdata',[],'colormap',[]);
+%     for i = 1:num_time_steps+1
+%         % To find out overall displacement including the removed boundary points
+%         final_disp = zeros(total_dof, 1);
+%         % Setting boundary point displacement to be zero
+%         final_disp(boundary_pt_index) = 0; 
+%         final_disp(non_boundary_indices) = nodal_disp(:, :, i);
+%         nodal_delta_x = final_disp(1:3:length(final_disp));
+%         nodal_delta_y = final_disp(2:3:length(final_disp));
+%         nodal_delta_z = final_disp(3:3:length(final_disp));
+%         % Here multiplying by a factor just to visualize the deformation[Fixed]
+%         new_nodal_coord = [nodal_delta_x nodal_delta_y nodal_delta_z] + nodal_coordinate;
+%     %     draw3DMesh(new_nodal_coord, faces);
+%         set(h, 'Vertices',new_nodal_coord);
+%         if strcmp(force_type, 'EQ')
+%             drawnow limitrate;
+%         elseif strcmp(force_type, 'IMP')
+%             drawnow; % Use for Impulsive loads as then we will have lesser frame
+%     %     rate.
+%         end
+%               % Capture the plot as an image 
+%         animation_frames(i) = getframe(gca);
+%         frame = getframe(gca); 
+%         im = frame2im(frame); 
+%         [imind,cm] = rgb2ind(im,256); 
+% 
+%         % Write to the GIF File 
+%         if i == 1 
+%           imwrite(imind,cm,filename,'gif', 'Loopcount', 0, 'Delay', 0.1); 
+%         else 
+%           imwrite(imind,cm,filename,'gif','WriteMode','append'); 
+%         end
+%     end
+%     close;
     %%
     counter_1 = 1;
     displ_mesh = zeros(mesh_meta_data(3)+1, mesh_meta_data(2)+1);
@@ -499,11 +504,12 @@ for diameter_now = start_dia_loop:1:end_dia_loop
     savefig(['../Logs/',folder_name,'/Fianl deflected 3D mesh.fig']);
     % @TODO Comment/Remove
     close;
+    now_index = now_index + 1;
 end
 %%
 figure(1001);
-plot(perce_steel_v, max_disp_per_dia, '-d','MarkerFaceColor','red', 'LineWidth', 1.5);
-xlabel('Percentage steel', 'FontSize', 12, 'FontWeight', 'bold');
+plot(damp_v(1:end), max_displ_vs_damp(1:end), '-d','MarkerFaceColor','red', 'LineWidth', 1.5);
+xlabel('Damping(Zeta)', 'FontSize', 12, 'FontWeight', 'bold');
 ylabel('Max Displacement (mm)', 'FontSize', 12, 'FontWeight', 'bold');
-title('Max displacement vs percentage steel');
+title('Max displacement vs zeta value');
 hold on;
