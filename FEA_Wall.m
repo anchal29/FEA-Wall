@@ -5,17 +5,17 @@
 % Using hexahedron element Finite Element Analysis of a Wall.
 % Working and tested on MATLAB R2017b
 % Dependancy: Neural Network Toolbox.
-start_damp_loop = 0;
-end_damp_loop = 0.3;
-total_iter = (end_damp_loop - start_damp_loop)*100;
-disp_th_per_damp = [];
-max_displ_vs_damp = [];
+start_asp_rat = 0.25;
+end_asp_rat = 1.5;
+disp_th_per_asp_rat = [];
+max_displ_asp_rat = [];
+asp_v = [];
 diameter_now = 10;
 now_index = 1;
-for damp_now = start_damp_loop:0.01:end_damp_loop
+for aspect_rat = start_asp_rat:0.05:end_asp_rat
 %     clear variables;
 %     clear global;
-    clearvars -except diameter_now disp_th_per_damp damp_now end_damp_loop start_damp_loop total_iter max_displ_vs_damp now_index 
+    clearvars -except diameter_now disp_th_per_asp_rat end_asp_rat start_asp_rat now_index asp_v aspect_rat max_displ_asp_rat
     clc;
     mkdir('../Logs');
     folder_name = ['[',datestr(datetime, 'dd-mmm-yyyy, HH.MM AM'), '] Logs'];
@@ -79,13 +79,22 @@ for damp_now = start_damp_loop:0.01:end_damp_loop
         conc_den = 2.49*10^(-9); % In Mg/mm^3
         steel_den = 8.05*10^(-9);
         g = 9.81*1000; % In mm/s^4
-        damp_now = damp_now;
+        damp_now = 0.05;
     end
     conc_E = 5000 * sqrt(conc_grade);
     steel_Et = steel_E / 5;
     conc_Et = conc_E / 10;
     steel_yield_strain = steel_grade / steel_E;
-
+    %% Setting height and width as per aspect ratio
+    % Comment it out later
+    if aspect_rat <= 1
+        height = 3000;
+        width = ceil(height/aspect_rat);
+    else
+        width = 3000;
+        height = ceil(width*aspect_rat);
+    end
+    %%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%% Change steel to concrete %%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -112,6 +121,7 @@ for damp_now = start_damp_loop:0.01:end_damp_loop
     reinforcment_info = [vertical_dia, vertical_spacing, vert_side_cover;
                          horz_dia    , horz_spacing    , horz_side_cover];
 
+
     %% Print Input
     fprintf('Wall dimesnsions:\n\tHeight: %d,\tWidth: %d,\tThickness: %d.\n', height, width, thickness);
     fprintf('Concrete properties:\n\tGrade: %d,\n\tPoisson''s ratio: %0.2f,\n\tDensity: %0.3e,\n\tYield stress: %0.3e,\n\tYield Strain: %0.3e\n',conc_grade, conc_pois_ratio, conc_den, conc_E, conc_yield_strain);
@@ -119,7 +129,7 @@ for damp_now = start_damp_loop:0.01:end_damp_loop
     fprintf('Boundary condition: %s\n', condition);
     fprintf('Verticle Bar specs:\n\tDiameter: %0.2f,\tSpacing: %0.2f,\t Side Cover: %0.2f.\n', vertical_dia, vertical_spacing, vert_side_cover);
     fprintf('Horizontal Bar specs:\n\tDiameter: %0.2f,\tSpacing: %0.2f,\t Side Cover: %0.2f.\n', horz_dia, horz_spacing, horz_side_cover);
-    fprintf('Dmaping: %0.2f\n', damp_now);
+    fprintf('Damping: %0.2f\n', damp_now);
 
     %% Create mesh
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -262,7 +272,7 @@ for damp_now = start_damp_loop:0.01:end_damp_loop
 
     %%
     disp('Applying boundary conditions...');
-    tic
+    tic*
     [global_stiff_bc, load_bc, global_mass_bc, boundary_pt_index] = boundary_conditions(condition, global_stiff, mesh_meta_data, load_vec_time_history, global_mass);
     all_indices = 1:total_no_nodes*3;
     non_boundary_indices = setdiff(all_indices, boundary_pt_index);
@@ -342,24 +352,19 @@ for damp_now = start_damp_loop:0.01:end_damp_loop
     for i = 1:num_time_steps
         max_displ(end+1) = (nodal_disp(end-2, :, i));
     end
-    disp_th_per_damp(:, :, now_index) = max_displ;
+    disp_th_per_asp_rat(:, :, now_index) = max_displ;
     max_text = ['\leftarrow Max displacement = ',num2str((max(max_displ)/height)*100), '% of the wall height.'];
     max_index = find(max_displ == max(max_displ));
-    max_displ_vs_damp(now_index) = max(max_displ);
-    damp_v(now_index) = damp_now;
-    figure(19927);
-    plot(time_vec, max_displ, 'LineWidth', 1.9, 'DisplayName',['Damping: ', num2str(damp_now)]);
+    max_displ_asp_rat(now_index) = max(max_displ);
+    asp_v(now_index) = aspect_rat;
+    figure;
+    plot(time_vec, max_displ, 'LineWidth', 1.9, 'DisplayName',['Aspect ratio: ', num2str(aspect_rat)]);
     text(time_vec(max_index), max_displ(max_index), max_text, 'FontSize', 12, 'FontWeight', 'bold');
     xlabel('Time (sec)', 'FontSize', 12, 'FontWeight', 'bold');
     ylabel('Displacement (mm)', 'FontSize', 12, 'FontWeight', 'bold');
     title('Displacement time history in x-direction for Elcentro GM(Applied in x-direction) - Last Node');
     savefig(['../Logs/',folder_name,'/Displ time history of top node.fig']);
-    hold on;
-    if damp_now == end_damp_loop
-        hold off;
-        legend
-    end
-
+    close;
     %% Plot
     max_now = 0;
     for j = 1:3:length(nodal_disp(:, :, 1))
@@ -497,7 +502,7 @@ for damp_now = start_damp_loop:0.01:end_damp_loop
     final_disp(non_boundary_indices) = nodal_disp(:, :, end);
     nodal_delta_x = final_disp(1:3:length(final_disp));
     nodal_delta_y = final_disp(2:3:length(final_disp));
-    nodal_delta_z = final_disp(3:3:length(final_disp));
+    nodal_delta_z = final_disp(3    :3:length(final_disp));
     % Here multiplying by a factor just to visualize the deformation.
     new_nodal_coord = 10*[nodal_delta_x nodal_delta_y nodal_delta_z] + nodal_coordinate;
     draw3DMesh(new_nodal_coord, faces);
@@ -508,8 +513,13 @@ for damp_now = start_damp_loop:0.01:end_damp_loop
 end
 %%
 figure(1001);
-plot(damp_v(1:end), max_displ_vs_damp(1:end), '-d','MarkerFaceColor','red', 'LineWidth', 1.5);
-xlabel('Damping(Zeta)', 'FontSize', 12, 'FontWeight', 'bold');
+plot(asp_v(1:end), max_displ_asp_rat(1:end), '-d','MarkerFaceColor','red', 'LineWidth', 1.5);
+xlabel('Aspect ratio', 'FontSize', 12, 'FontWeight', 'bold');
 ylabel('Max Displacement (mm)', 'FontSize', 12, 'FontWeight', 'bold');
-title('Max displacement vs zeta value');
+title('Max displacement vs aspect ratio');
 hold on;
+a = [asp_v', max_displ_asp_rat'];
+save(['../Logs/',folder_name,'/asp_rat_vs_max_disp.mat'], 'a');
+% How to get the matrix
+% example = matfile(['../Logs/',folder_name,'/damp_vs_max_disp.mat'])
+% example.a
