@@ -61,7 +61,7 @@ for aspect_rat = start_asp_rat:0.05:end_asp_rat
     else
         height = 3000;
         width = 5000;
-        thickness = 200;
+        thickness = 220;
         steel_E = 2 * 10^5;
         pois_ratio = .3;
         bar_dia = diameter_now; % 12mm diameter bars
@@ -73,7 +73,7 @@ for aspect_rat = start_asp_rat:0.05:end_asp_rat
         conc_grade = 25;
         steel_grade = 415;
         conc_pois_ratio = 0.18;
-        steel_pois_ratio = 0.3; % @TODO Change it to 0.3
+        steel_pois_ratio = 0.3;
         conc_yield_strain = 0.002;
         face_num = 6;
         conc_den = 2.49*10^(-9); % In Mg/mm^3
@@ -89,6 +89,7 @@ for aspect_rat = start_asp_rat:0.05:end_asp_rat
     % Comment it out later
     if aspect_rat <= 1
         height = 3000;
+%         width = 5000;
         width = ceil(height/aspect_rat);
     else
         width = 3000;
@@ -242,13 +243,14 @@ for aspect_rat = start_asp_rat:0.05:end_asp_rat
         pressure_time_history = [     0, 0.01691;% Time in sec.
                                  0.1724,       0;]; % Pressure pulse for 125kg TNT kept at 20m.
         points = 0;
-        temp = repmat([0.01691; 0], 1, points);
+        temp = repmat([pressure_time_history(1, 2); 0], 1, points);
         for i = 1:points
             temp(1, i) = temp(1, i)*(i+1);
         end
         pressure_time_history = [pressure_time_history temp];
         time_vec = pressure_time_history(1, :);
         plot(pressure_time_history(1, :), pressure_time_history(2, :), 'LineWidth', 1.9);
+        save(['../Logs/',folder_name,'/pressure_time_hist.mat'], 'pressure_time_history');
         close;
         [face_indices, face_area] = getFaceIndices(mesh_meta_data, face_num, dimension);
         num_time_steps = length(pressure_time_history(1, :));
@@ -272,7 +274,7 @@ for aspect_rat = start_asp_rat:0.05:end_asp_rat
 
     %%
     disp('Applying boundary conditions...');
-    tic*
+    tic;
     [global_stiff_bc, load_bc, global_mass_bc, boundary_pt_index] = boundary_conditions(condition, global_stiff, mesh_meta_data, load_vec_time_history, global_mass);
     all_indices = 1:total_no_nodes*3;
     non_boundary_indices = setdiff(all_indices, boundary_pt_index);
@@ -283,20 +285,23 @@ for aspect_rat = start_asp_rat:0.05:end_asp_rat
     disp('Damping matrix calculations...');
     tic
     zeta = damp_now;
-    % smallest_eig_value = eigs(global_stiff_bc, global_mass_bc, 1, 'smallestabs');
-    % ten_low_eig_val = eigs(global_stiff_bc, global_mass_bc, 10, 'smallestabs');
-    % larg_eig_value = eigs(global_stiff_bc, global_mass_bc, 1, 'largestabs');
-    % omega_low = sqrt(smallest_eig_value);
-    % omega_high = sqrt(larg_eig_value);
-    omega_low = 78.1175;
-    omega_high = 1.2261e+06;
+    smallest_eig_value = eigs(global_stiff_bc, global_mass_bc, 1, 'smallestabs');
+%     ten_low_eig_val = eigs(global_stiff_bc, global_mass_bc, 10, 'smallestabs');
+    % Convergence problem can be rectified by increasing the SubspaceDimension.
+    % Memory is not the bottleneck here so increasing Subspace Dimension to 100.
+    % Moreover the results obtained will not be identical everytime because of 
+    % the random seed taken. 
+    larg_eig_value = eigs(global_stiff_bc, global_mass_bc, 1, 'largestabs', 'Display', true, 'SubspaceDimension', 100);
+%     larg_eig_value = larg_eig_value(1);
+    omega_low = sqrt(smallest_eig_value);
+    omega_high = sqrt(larg_eig_value);
     % Above mentioned values are calculated for wall - [200 5000 3000]
     beta = 2*zeta/(omega_low + omega_high);
     alpha = omega_low*omega_high*beta;
     global_damp_bc = alpha*global_mass_bc + beta*global_stiff_bc;
     toc
     disp('Done!');
-
+    
     %% Initialization for applying newmarks's method
     disp('Initialization for applying newmarks''s method...');
     total_dof = length(global_stiff_bc);
@@ -502,11 +507,11 @@ for aspect_rat = start_asp_rat:0.05:end_asp_rat
     final_disp(non_boundary_indices) = nodal_disp(:, :, end);
     nodal_delta_x = final_disp(1:3:length(final_disp));
     nodal_delta_y = final_disp(2:3:length(final_disp));
-    nodal_delta_z = final_disp(3    :3:length(final_disp));
+    nodal_delta_z = final_disp(3:3:length(final_disp));
     % Here multiplying by a factor just to visualize the deformation.
     new_nodal_coord = 10*[nodal_delta_x nodal_delta_y nodal_delta_z] + nodal_coordinate;
     draw3DMesh(new_nodal_coord, faces);
-    savefig(['../Logs/',folder_name,'/Fianl deflected 3D mesh.fig']);
+    savefig(['../Logs/',folder_name,'/Final deflected 3D mesh.fig']);
     % @TODO Comment/Remove
     close;
     now_index = now_index + 1;
@@ -517,7 +522,8 @@ plot(asp_v(1:end), max_displ_asp_rat(1:end), '-d','MarkerFaceColor','red', 'Line
 xlabel('Aspect ratio', 'FontSize', 12, 'FontWeight', 'bold');
 ylabel('Max Displacement (mm)', 'FontSize', 12, 'FontWeight', 'bold');
 title('Max displacement vs aspect ratio');
-hold on;
+savefig(['../Logs/',folder_name,'/asp_rat_vs_max_disp_plot.fig']);
+% close;
 a = [asp_v', max_displ_asp_rat'];
 save(['../Logs/',folder_name,'/asp_rat_vs_max_disp.mat'], 'a');
 % How to get the matrix
