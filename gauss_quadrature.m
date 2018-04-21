@@ -43,11 +43,21 @@ function [gaussian_points, weights] =  gauss_quadrature(num_points)
         case 3
             %  It will be a 27 x 1 matrix containing the weight of the
             %  gauusian points in case of 3-points 3D gaussian quadrature.
-            weights = [(8/9)^3,];
+            weight_temp = [8/9, 5/9, 5/9];
+            K = 3;
+            C = cell(K, 1);
+            [C{:}] = ndgrid(weight_temp);
+            y = cellfun(@(weight_temp){weight_temp(:)}, C);
+            y = [y{:}];
+            weights = y;
+            weights = weights(:, 1).*weights(:, 2).*weights(:, 3);
             % 3 x 3 x 3 number of elements in the matrix
-            
-            % @TODO In case if use of 3-points gaussian quadrature comes
-            % complete it and use this.
-            gaussian_points = [];
+            % Find out all the possible permutation with repetition from 3 points.
+            temp = [0, sqrt(3/5), -sqrt(3/5)];
+            C = cell(K, 1);
+            [C{:}] = ndgrid(temp);
+            y = cellfun(@(temp){temp(:)}, C);
+            y = [y{:}];
+            gaussian_points = y;
     end
 end

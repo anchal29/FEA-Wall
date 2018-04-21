@@ -66,28 +66,34 @@ for var_val = var_start:var_diff:var_end
         height = 3000;
         width = 5000;
         thickness = 220;
-        steel_E = 2 * 10^5;
+        reinf_present = false;
         pois_ratio = .3;
-        bar_dia = diameter_now; % 12mm diameter bars
+        
         condition = 'one_fixed';
-        vertical_spacing = 250; % 250 mm spacing of verticle reinforcement.
-        horz_spacing = 300; % 300 mm spacing of horizontal reinforcement.
-        vertical_dia = diameter_now;
-        horz_dia = diameter_now;
+        
         conc_grade = 25;
-        steel_grade = 415;
         conc_pois_ratio = 0.18;
-        steel_pois_ratio = 0.3;
         conc_yield_strain = 0.002;
         face_num = 6;
         conc_den = 2.49*10^(-9); % In Mg/mm^3
+        
+        if reinf_present 
+            bar_dia = diameter_now;
+            vertical_spacing = 250; % 250 mm spacing of verticle reinforcement.
+            horz_spacing = 300; % 300 mm spacing of horizontal reinforcement.
+            vertical_dia = diameter_now;
+            horz_dia = diameter_now;
+        end
+        steel_grade = 415;
+        steel_pois_ratio = 0.3;
         steel_den = 8.05*10^(-9);
+        steel_E = 2 * 10^5;
         g = 9.81*1000; % In mm/s^2
-%         damp_now = damp_now; % 
     end
+
     conc_E = 5000 * sqrt(conc_grade);
-    steel_Et = steel_E / 5;
     conc_Et = conc_E / 10;
+    steel_Et = steel_E / 5;
     steel_yield_strain = steel_grade / steel_E;
     %% Setting height and width as per aspect ratio
     % Comment it out later
@@ -113,7 +119,6 @@ for var_val = var_start:var_diff:var_end
 
     % Dimensions matrix is in mm so to avoid float values.
     dimension = [thickness, width, height];
-
     %%% Naive assumptions
     % It seems that 15 divisions across y and z direction are enough. So
     % creating the divisions accordingly.
@@ -121,19 +126,23 @@ for var_val = var_start:var_diff:var_end
     div_z = 15;
     div_x = 1; % This should vary according to the bars positioning.
     divisions = [div_x, div_y, div_z];
-    vert_side_cover = 75;% Veticle bars side cover.
-    horz_side_cover = 75;
-    reinforcment_info = [vertical_dia, vertical_spacing, vert_side_cover;
-                         horz_dia    , horz_spacing    , horz_side_cover];
-
+    
+    if reinf_present
+        vert_side_cover = 75;% Veticle bars side cover.
+        horz_side_cover = 75;
+        reinforcment_info = [vertical_dia, vertical_spacing, vert_side_cover;
+                             horz_dia    , horz_spacing    , horz_side_cover];
+    end
 
     %% Print Input
     fprintf('Wall dimesnsions:\n\tHeight: %d,\tWidth: %d,\tThickness: %d.\n', height, width, thickness);
     fprintf('Concrete properties:\n\tGrade: %d,\n\tPoisson''s ratio: %0.2f,\n\tDensity: %0.3e,\n\tYield stress: %0.3e,\n\tYield Strain: %0.3e\n',conc_grade, conc_pois_ratio, conc_den, conc_E, conc_yield_strain);
-    fprintf('Steel properties:\n\tGrade: %d,\n\tPoisson''s ratio: %0.2f,\n\tDensity: %0.3e,\n\tYield stress: %0.3e,\n\tYield Strain: %0.3e\n',steel_grade, steel_pois_ratio, steel_den, steel_E, steel_yield_strain);
+    if reinf_present
+        fprintf('Steel properties:\n\tGrade: %d,\n\tPoisson''s ratio: %0.2f,\n\tDensity: %0.3e,\n\tYield stress: %0.3e,\n\tYield Strain: %0.3e\n',steel_grade, steel_pois_ratio, steel_den, steel_E, steel_yield_strain);
+        fprintf('Verticle Bar specs:\n\tDiameter: %0.2f,\tSpacing: %0.2f,\t Side Cover: %0.2f.\n', vertical_dia, vertical_spacing, vert_side_cover);
+        fprintf('Horizontal Bar specs:\n\tDiameter: %0.2f,\tSpacing: %0.2f,\t Side Cover: %0.2f.\n', horz_dia, horz_spacing, horz_side_cover);
+    end
     fprintf('Boundary condition: %s\n', condition);
-    fprintf('Verticle Bar specs:\n\tDiameter: %0.2f,\tSpacing: %0.2f,\t Side Cover: %0.2f.\n', vertical_dia, vertical_spacing, vert_side_cover);
-    fprintf('Horizontal Bar specs:\n\tDiameter: %0.2f,\tSpacing: %0.2f,\t Side Cover: %0.2f.\n', horz_dia, horz_spacing, horz_side_cover);
     fprintf('Damping: %0.2f\n', damp_now);
 
     %% Create mesh
@@ -141,7 +150,11 @@ for var_val = var_start:var_diff:var_end
     %%%%%%%%%%%%%%%%%%%%%%%        MESH CREATION        %%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     disp('Creating Mesh...');
-    [nodal_connect, nodal_coordinate, faces, mesh_meta_data, bar_position] = createMesh(dimension, divisions, reinforcment_info);
+    if reinf_present
+        [nodal_connect, nodal_coordinate, faces, mesh_meta_data, bar_position] = createMesh(dimension, divisions, reinforcment_info);
+    else
+        [nodal_connect, nodal_coordinate, faces, mesh_meta_data] = createMeshWithoutReinf(dimension, divisions);
+    end
     disp('Done!');
 
 
@@ -159,9 +172,14 @@ for var_val = var_start:var_diff:var_end
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%          ASSIGN ELEMENTS TYPES          %%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    disp('Getting each element type...');
-    element_type_steel = getElementType(nodal_coordinate, nodal_connect, bar_position, thickness);
-    disp('Done!');
+    if reinf_present
+        disp('Getting each element type...');
+        element_type_steel = getElementType(nodal_coordinate, nodal_connect, bar_position, thickness);
+        disp('Done!');
+    else
+        no_elements = length(nodal_connect);
+        element_type_steel = zeros(no_elements, 1);
+    end
 
     %%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -462,7 +480,7 @@ for var_val = var_start:var_diff:var_end
 % 
 %         % Write to the GIF File 
 %         if i == 1 
-%           imwrite(imind,cm,filename,'gif', 'Loopcount', 0, 'Delay', 0.1); 
+%           imwrite(imind,cm,filename,'gif', 'Loopcount', 0, 'Delay', 1); 
 %         else 
 %           imwrite(imind,cm,filename,'gif','WriteMode','append'); 
 %         end

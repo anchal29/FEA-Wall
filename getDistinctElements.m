@@ -29,7 +29,9 @@ function [distinct_elements, distinct_coordinates] = getDistinctElements(nodal_c
 
 distinct_coordinates = [];
 distinct_elements = [];
-for i = 1:length(nodal_connect)
+no_elements = size(nodal_connect);
+no_elements = no_elements(1);
+for i = 1:no_elements
     dx = nodal_coordinate(nodal_connect(i, 2), 1) - nodal_coordinate(nodal_connect(i, 1), 1);
     dy = nodal_coordinate(nodal_connect(i, 3), 2) - nodal_coordinate(nodal_connect(i, 2), 2);
     dz = nodal_coordinate(nodal_connect(i, 5), 3) - nodal_coordinate(nodal_connect(i, 1), 3);
