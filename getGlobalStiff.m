@@ -30,7 +30,7 @@ toc
 disp('Done!');
 % Make the global stiffness matrix symmetric and handle any bug in
 % calculation of global stiffness matrix calculation.
-if(max(max(abs(global_stiff - global_stiff))) < 1e-5)
+if(max(max(abs(global_stiff - global_stiff.'))) < 1e-5)
     global_stiff = (global_stiff + global_stiff.')/2;
 else
     disp('Variations in global stiffness matrix crossed acceptable error. Aborting...');

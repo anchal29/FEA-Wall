@@ -5,17 +5,21 @@
 % Using hexahedron element Finite Element Analysis of a Wall.
 % Working and tested on MATLAB R2017b
 % Dependancy: Neural Network Toolbox.
-start_asp_rat = 0.25;
-end_asp_rat = 1.5;
-disp_th_per_asp_rat = [];
-max_displ_asp_rat = [];
-asp_v = [];
-diameter_now = 10;
+var_name = 'Damping ratio';
+var_start = 0.0;
+var_diff = 0.01;
+var_end = 0.3;
+disp_th_per_var = [];
+max_disp_per_var = [];
+var_vec = [];
 now_index = 1;
-for aspect_rat = start_asp_rat:0.05:end_asp_rat
+% damp_now = 0.05;
+diameter_now = 10;
+for var_val = var_start:var_diff:var_end
+    damp_now = var_val;
 %     clear variables;
 %     clear global;
-    clearvars -except diameter_now disp_th_per_asp_rat end_asp_rat start_asp_rat now_index asp_v aspect_rat max_displ_asp_rat
+    clearvars -except diameter_now damp_now var_name var_start var_diff var_end disp_th_per_var max_disp_per_var var_vec now_index var_val
     clc;
     mkdir('../Logs');
     folder_name = ['[',datestr(datetime, 'dd-mmm-yyyy, HH.MM AM'), '] Logs'];
@@ -68,7 +72,7 @@ for aspect_rat = start_asp_rat:0.05:end_asp_rat
         condition = 'one_fixed';
         vertical_spacing = 250; % 250 mm spacing of verticle reinforcement.
         horz_spacing = 300; % 300 mm spacing of horizontal reinforcement.
-        vertical_dia = diameter_now; % 6mm bars used for verticle reinforcement.
+        vertical_dia = diameter_now;
         horz_dia = diameter_now;
         conc_grade = 25;
         steel_grade = 415;
@@ -78,8 +82,8 @@ for aspect_rat = start_asp_rat:0.05:end_asp_rat
         face_num = 6;
         conc_den = 2.49*10^(-9); % In Mg/mm^3
         steel_den = 8.05*10^(-9);
-        g = 9.81*1000; % In mm/s^4
-        damp_now = 0.05;
+        g = 9.81*1000; % In mm/s^2
+%         damp_now = damp_now; % 
     end
     conc_E = 5000 * sqrt(conc_grade);
     steel_Et = steel_E / 5;
@@ -87,14 +91,14 @@ for aspect_rat = start_asp_rat:0.05:end_asp_rat
     steel_yield_strain = steel_grade / steel_E;
     %% Setting height and width as per aspect ratio
     % Comment it out later
-    if aspect_rat <= 1
-        height = 3000;
-%         width = 5000;
-        width = ceil(height/aspect_rat);
-    else
-        width = 3000;
-        height = ceil(width*aspect_rat);
-    end
+%     if aspect_rat <= 1
+%         height = 3000;
+% %         width = 5000;
+%         width = ceil(height/aspect_rat);
+%     else
+%         width = 3000;
+%         height = ceil(width*aspect_rat);
+%     end
     %%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%% Change steel to concrete %%%%%%%%%%
@@ -146,7 +150,8 @@ for aspect_rat = start_asp_rat:0.05:end_asp_rat
     %%%%%%%%%%%%%%%%%%%%%%%        MESH 3D PLOT        %%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %     disp('Plotting Mesh...');
-%     draw3DMesh(nodal_coordinate, faces);
+%     draw3DMesh(nodal_coordinate, faces, zeros(length(nodal_coordinate),
+%     1));
 %     disp('Done!');
 
 
@@ -187,7 +192,7 @@ for aspect_rat = start_asp_rat:0.05:end_asp_rat
     end
     total_vol = width*height*thickness;
     percentage_steel = total_steel_vol/total_vol*100;
-    fprintf("Percentage of steel: %0.6f\n", percentage_steel);
+    fprintf('Percentage of steel: %0.6f\n', percentage_steel);
     %% Mass matrix calculation
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%          MASS MATRIX CALCULATION          %%%%%%%%%%%%%%%%
@@ -240,8 +245,8 @@ for aspect_rat = start_asp_rat:0.05:end_asp_rat
         toc
     elseif strcmp(force_type, 'IMP') % Stands for impulsive surface pressure load
         %%
-        pressure_time_history = [     0, 0.01691;% Time in sec.
-                                 0.1724,       0;]; % Pressure pulse for 125kg TNT kept at 20m.
+        pressure_time_history = [     0, 0.017345;% Time in sec.
+                                 0.04413,       0;]; % Pressure pulse for 125kg TNT kept at 20m.
         points = 0;
         temp = repmat([pressure_time_history(1, 2); 0], 1, points);
         for i = 1:points
@@ -285,13 +290,11 @@ for aspect_rat = start_asp_rat:0.05:end_asp_rat
     disp('Damping matrix calculations...');
     tic
     zeta = damp_now;
-    smallest_eig_value = eigs(global_stiff_bc, global_mass_bc, 1, 'smallestabs');
-%     ten_low_eig_val = eigs(global_stiff_bc, global_mass_bc, 10, 'smallestabs');
-    % Convergence problem can be rectified by increasing the SubspaceDimension.
-    % Memory is not the bottleneck here so increasing Subspace Dimension to 100.
-    % Moreover the results obtained will not be identical everytime because of 
-    % the random seed taken. 
-    larg_eig_value = eigs(global_stiff_bc, global_mass_bc, 1, 'largestabs', 'Display', true, 'SubspaceDimension', 100);
+    smallest_eig_values = eigs(global_stiff_bc, global_mass_bc, 20, 'smallestabs');
+    larg_eig_value = smallest_eig_values(end);
+    smallest_eig_value = smallest_eig_values(1);
+%     [eig_vecs, smallest_eig_vals] = eigs(global_stiff_bc, global_mass_bc, 50, 'smallestabs', 'Display', true, 'SubspaceDimension', 100);
+%     larg_eig_value = eigs(global_stiff_bc, global_mass_bc, 1, 'largestabs', 'Display', true, 'SubspaceDimension', 100);
 %     larg_eig_value = larg_eig_value(1);
     omega_low = sqrt(smallest_eig_value);
     omega_high = sqrt(larg_eig_value);
@@ -301,7 +304,7 @@ for aspect_rat = start_asp_rat:0.05:end_asp_rat
     global_damp_bc = alpha*global_mass_bc + beta*global_stiff_bc;
     toc
     disp('Done!');
-    
+    fprintf('Alpha: %0.14f and Beta: %0.14f\n', alpha, beta);
     %% Initialization for applying newmarks's method
     disp('Initialization for applying newmarks''s method...');
     total_dof = length(global_stiff_bc);
@@ -357,13 +360,13 @@ for aspect_rat = start_asp_rat:0.05:end_asp_rat
     for i = 1:num_time_steps
         max_displ(end+1) = (nodal_disp(end-2, :, i));
     end
-    disp_th_per_asp_rat(:, :, now_index) = max_displ;
+    disp_th_per_var(:, :, now_index) = max_displ;
     max_text = ['\leftarrow Max displacement = ',num2str((max(max_displ)/height)*100), '% of the wall height.'];
     max_index = find(max_displ == max(max_displ));
-    max_displ_asp_rat(now_index) = max(max_displ);
-    asp_v(now_index) = aspect_rat;
+    max_disp_per_var(now_index) = max(max_displ);
+    var_vec(now_index) = var_val;
     figure;
-    plot(time_vec, max_displ, 'LineWidth', 1.9, 'DisplayName',['Aspect ratio: ', num2str(aspect_rat)]);
+    plot(time_vec, max_displ, 'LineWidth', 1.9, 'DisplayName',[var_name, ': ', num2str(var_val)]);
     text(time_vec(max_index), max_displ(max_index), max_text, 'FontSize', 12, 'FontWeight', 'bold');
     xlabel('Time (sec)', 'FontSize', 12, 'FontWeight', 'bold');
     ylabel('Displacement (mm)', 'FontSize', 12, 'FontWeight', 'bold');
@@ -428,7 +431,7 @@ for aspect_rat = start_asp_rat:0.05:end_asp_rat
     % @TODO Comment/Remove
     close;
 %     %%
-%     h = draw3DMesh(nodal_coordinate, faces);
+%     h = draw3DMesh(nodal_coordinate, faces, zeros(length(nodal_coordinate), 1));
 %     filename = ['../Logs/',folder_name,'/ResponseAnimatedLinear.gif'];
 % 
 %     animation_frames(num_time_steps) = struct('cdata',[],'colormap',[]);
@@ -443,7 +446,7 @@ for aspect_rat = start_asp_rat:0.05:end_asp_rat
 %         nodal_delta_z = final_disp(3:3:length(final_disp));
 %         % Here multiplying by a factor just to visualize the deformation[Fixed]
 %         new_nodal_coord = [nodal_delta_x nodal_delta_y nodal_delta_z] + nodal_coordinate;
-%     %     draw3DMesh(new_nodal_coord, faces);
+%     %     draw3DMesh(new_nodal_coord, faces, final_disp(1:3:end));
 %         set(h, 'Vertices',new_nodal_coord);
 %         if strcmp(force_type, 'EQ')
 %             drawnow limitrate;
@@ -510,7 +513,7 @@ for aspect_rat = start_asp_rat:0.05:end_asp_rat
     nodal_delta_z = final_disp(3:3:length(final_disp));
     % Here multiplying by a factor just to visualize the deformation.
     new_nodal_coord = 10*[nodal_delta_x nodal_delta_y nodal_delta_z] + nodal_coordinate;
-    draw3DMesh(new_nodal_coord, faces);
+    draw3DMesh(new_nodal_coord, faces, final_disp(1:3:end));
     savefig(['../Logs/',folder_name,'/Final deflected 3D mesh.fig']);
     % @TODO Comment/Remove
     close;
@@ -518,14 +521,16 @@ for aspect_rat = start_asp_rat:0.05:end_asp_rat
 end
 %%
 figure(1001);
-plot(asp_v(1:end), max_displ_asp_rat(1:end), '-d','MarkerFaceColor','red', 'LineWidth', 1.5);
-xlabel('Aspect ratio', 'FontSize', 12, 'FontWeight', 'bold');
+% var_name = 'Diameter';
+% var_vec = 4:1:22;
+plot(var_vec, max_disp_per_var, '-d','MarkerFaceColor', 'red', 'LineWidth', 1.5);
+xlabel(var_name, 'FontSize', 12, 'FontWeight', 'bold');
 ylabel('Max Displacement (mm)', 'FontSize', 12, 'FontWeight', 'bold');
-title('Max displacement vs aspect ratio');
-savefig(['../Logs/',folder_name,'/asp_rat_vs_max_disp_plot.fig']);
+title(['Max displacement vs ', var_name]);
+savefig(['../Logs/',folder_name,'/', var_name, '_vs_max_disp_plot.fig']);
 % close;
-a = [asp_v', max_displ_asp_rat'];
-save(['../Logs/',folder_name,'/asp_rat_vs_max_disp.mat'], 'a');
+a = [var_vec', max_disp_per_var'];
+save(['../Logs/',folder_name,'/', var_name, '_vs_max_disp.mat'], 'a');
 % How to get the matrix
 % example = matfile(['../Logs/',folder_name,'/damp_vs_max_disp.mat'])
 % example.a

@@ -1,4 +1,4 @@
-function h = draw3DMesh(nodal_coordinate, faces)
+function h = draw3DMesh(nodal_coordinate, faces, overall_disp)
 %**************************************************************************
 % Uses patch to draw 3D mesh for the given wall.
 %**************************************************************************
@@ -9,8 +9,11 @@ function h = draw3DMesh(nodal_coordinate, faces)
 %                    elements together for plotting using patch.
 
 figure;
+
 h = patch('Vertices',nodal_coordinate,'Faces',faces,...
-    'FaceColor','c');
+    'FaceVertexCData',overall_disp,'FaceColor','interp');
+colormap(jet(256));
+colorbar;
 axis off;
 axis equal;
 cameratoolbar('SetCoordSys','z');
